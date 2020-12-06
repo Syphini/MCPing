@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.IO;
 using System.Net;
 using System.Net.Sockets;
-using System.Text;
 using System.Threading;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
@@ -45,13 +44,17 @@ namespace MCPing
         {
             Console.Title = "Minecraft Server Ping";
 
-            List<string> ipList = JsonConvert.DeserializeObject<List<string>>(File.ReadAllText("config/iplist.json"));
-            scannedList = JsonConvert.DeserializeObject<List<string>>(File.ReadAllText("config/scanned.json"));
+            List<string> ipList = JsonConvert.DeserializeObject<List<string>>(File.ReadAllText(Constants.ipListPath));
+            scannedList = JsonConvert.DeserializeObject<List<string>>(File.ReadAllText(Constants.scannedPath));
 
-            ipList.AddRange(CalculateRange("51.79.0.0", "51.79.255.255"));
+            ipList.AddRange(CalculateRange("162.244.164.0", "162.244.167.255"));
+            ipList.AddRange(CalculateRange("147.135.0.0", "147.135.255.255"));
             ipList.AddRange(CalculateRange("104.193.176.0", "104.193.183.255"));
             ipList.AddRange(CalculateRange("149.56.0.0", "149.56.255.255"));
+            ipList.AddRange(CalculateRange("51.79.0.0", "51.79.255.255"));
+            ipList.AddRange(CalculateRange("104.26.0.0", "104.26.255.255"));
 
+            HashSet<string> hashScanList = new HashSet<string>(scannedList);
 
             Console.WriteLine($"IP Count: {ipList.Count}");
 
@@ -63,7 +66,7 @@ namespace MCPing
                 ServerPing instance = new ServerPing();
                 //instance.Ping(ip);
 
-                if (!scannedList.Contains(ip.ToString()))
+                if (!hashScanList.Contains(ip.ToString()))
                 {
                     Thread thread = new Thread(new ParameterizedThreadStart(instance.Ping));
                     thread.Start(ip);
@@ -83,7 +86,7 @@ namespace MCPing
 
         static void WriteTimer(object count)
         {
-            const int modif = 50;
+            const int modif = 100;
 
             for (int i = 0; i < (int)count / modif; i++)
             {
@@ -93,13 +96,17 @@ namespace MCPing
                     try
                     {
                         string output = JsonConvert.SerializeObject(scannedList, Formatting.Indented);
-                        File.WriteAllText("config/scanned.json", output);
+                        File.WriteAllText(Constants.scannedPath, output);
                         Console.WriteLine("Saved");
                     }
                     catch (Exception ex)
                     {
-                        if (ex is InvalidOperationException || ex is IOException)
-                            Console.WriteLine($"Error during serialization: {ex}");
+                        if (ex is InvalidOperationException)
+                            Console.WriteLine($"Error: InvalidOperationException");
+                        else if (ex is IOException)
+                            Console.WriteLine("Error: IO Exception");
+                        else
+                            Console.WriteLine(ex);
                     }
                 }
                 else
@@ -149,6 +156,9 @@ namespace MCPing
                 {
                     list.Add($"{start[0]}.{start[1]}.{start[2]}.{start[3]}");
                 }
+
+                if (start[2] == end[2] && start[3] == end[3])
+                    return list;
 
             }
             while (start[2] < 256 && start[2] < (end[2] + 1));
@@ -232,10 +242,10 @@ namespace MCPing
                     Console.WriteLine("Players Online: {0}/{1}", ping.Players.Online, ping.Players.Max);
 
                     //Grab the current serverList
-                    ServerList serverList = JsonConvert.DeserializeObject<ServerList>(File.ReadAllText("config/serverList.json"));
+                    ServerList serverList = JsonConvert.DeserializeObject<ServerList>(File.ReadAllText(Constants.serverListPath));
 
                     //Grab list of predetermined names
-                    List<string> namesList = JsonConvert.DeserializeObject<List<string>>(File.ReadAllText("config/names.json"));
+                    List<string> namesList = JsonConvert.DeserializeObject<List<string>>(File.ReadAllText(Constants.namesPath));
 
                     //Scan usernames in server
                     if (ping.Players.Sample != null)
@@ -263,7 +273,7 @@ namespace MCPing
                     //Write to file
                     serverList.ping = dict;
                     string serialized = JsonConvert.SerializeObject(serverList, Formatting.Indented);
-                    File.WriteAllText("config/serverList.json", serialized);
+                    File.WriteAllText(Constants.serverListPath, serialized);
                     Console.WriteLine("Writing to Config");
 
                     Console.ResetColor();
