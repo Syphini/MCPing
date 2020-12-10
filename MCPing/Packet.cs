@@ -5,6 +5,7 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Net.Sockets;
 using System.IO;
+using Newtonsoft.Json;
 
 namespace MCPing
 {
@@ -20,6 +21,36 @@ namespace MCPing
             buffer = _buffer;
         }
 
+        public PingPayload PingStatus(Packet packet)
+        {
+            //Console.WriteLine("Sending status request");
+
+            //Send a "Handshake" packet
+            packet.WriteVarInt(47);
+            packet.WriteString("localhost");
+            packet.WriteShort(25565);
+            packet.WriteVarInt(1);
+            packet.Flush(0);
+
+            //Send a "Status Request" packet
+            packet.Flush(0);
+
+
+            byte[] buffer = new byte[short.MaxValue];
+            packet.stream.Read(buffer, 0, buffer.Length);
+
+
+            var length = packet.ReadVarInt(buffer);
+            var packetType = packet.ReadVarInt(buffer);
+            var jsonLength = packet.ReadVarInt(buffer);
+
+            //Console.WriteLine("Received packet 0x{0} with a length of {1}", packetType.ToString("X2"), length);
+
+            var json = packet.ReadString(buffer, jsonLength);
+            return JsonConvert.DeserializeObject<PingPayload>(json);
+        }
+
+        #region Read Methods
         public byte ReadByte(byte[] buffer)
         {
             var b = buffer[offset];
@@ -56,7 +87,9 @@ namespace MCPing
             var data = Read(buffer, length);
             return Encoding.UTF8.GetString(data);
         }
+        #endregion
 
+        #region Write Methods
         public void WriteVarInt(int value)
         {
             while ((value & 128) != 0)
@@ -83,6 +116,7 @@ namespace MCPing
         {
             stream.WriteByte(b);
         }
+        #endregion
 
         public void Flush(int id = -1)
         {

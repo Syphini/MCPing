@@ -5,7 +5,6 @@ using System.Net;
 using System.Net.Sockets;
 using System.Threading;
 using Newtonsoft.Json;
-using Newtonsoft.Json.Linq;
 
 namespace MCPing
 {
@@ -39,6 +38,7 @@ namespace MCPing
 
         static bool finishedChecking = false;
         static List<string> scannedList;
+        static List<ServerList> initServerList;
 
         private static void Main(string[] args)
         {
@@ -46,17 +46,25 @@ namespace MCPing
 
             List<string> ipList = JsonConvert.DeserializeObject<List<string>>(File.ReadAllText(Constants.ipListPath));
             scannedList = JsonConvert.DeserializeObject<List<string>>(File.ReadAllText(Constants.scannedPath));
+            initServerList = JsonConvert.DeserializeObject<List<ServerList>>(File.ReadAllText(Constants.serverListPath));
 
+            ipList.AddRange(CalculateRange("139.99.0.0", "139.99.127.255"));
+            ipList.AddRange(CalculateRange("158.62.200.0", "158.62.207.255"));
             ipList.AddRange(CalculateRange("162.244.164.0", "162.244.167.255"));
             ipList.AddRange(CalculateRange("147.135.0.0", "147.135.255.255"));
             ipList.AddRange(CalculateRange("104.193.176.0", "104.193.183.255"));
             ipList.AddRange(CalculateRange("149.56.0.0", "149.56.255.255"));
             ipList.AddRange(CalculateRange("51.79.0.0", "51.79.255.255"));
-            ipList.AddRange(CalculateRange("104.26.0.0", "104.26.255.255"));
+            ipList.AddRange(CalculateRange("135.148.0.0", "135.148.128.255"));
+
+            //~NOT IN USE
+            //ipList.AddRange(CalculateRange("192.95.0.0", "192.95.63.255"));
+            //ipList.AddRange(CalculateRange("192.99.0.0", "192.99.255.255"));
 
             HashSet<string> hashScanList = new HashSet<string>(scannedList);
 
-            Console.WriteLine($"IP Count: {ipList.Count}");
+            Console.WriteLine($"IP's to Scan: {ipList.Count}");
+            Console.WriteLine($"Servers already registered: {initServerList.Count}");
 
             Thread writeThread = new Thread(new ParameterizedThreadStart(WriteTimer));
             writeThread.Start(ipList.Count);
@@ -66,7 +74,10 @@ namespace MCPing
                 ServerPing instance = new ServerPing();
                 //instance.Ping(ip);
 
-                if (!hashScanList.Contains(ip.ToString()))
+                //Find an index value corresponding to an IP value in ServerList
+                int index = initServerList.FindIndex(f => f.ip == ip.ToString());
+
+                if (!hashScanList.Contains(ip.ToString()) || index >= 0)
                 {
                     Thread thread = new Thread(new ParameterizedThreadStart(instance.Ping));
                     thread.Start(ip);
@@ -191,7 +202,8 @@ namespace MCPing
                 //Console.WriteLine($"Unable to connect to {ip}");
                 //Console.ResetColor();
 
-                scannedList.Add(ipaddr.ToString());
+                if (!scannedList.Contains(ipaddr.ToString()))
+                    scannedList.Add(ipaddr.ToString());
                 return;
             }
 
@@ -199,36 +211,9 @@ namespace MCPing
             {
                 Packet packet = new Packet(client.GetStream(), new List<byte>());
 
-                //Console.WriteLine("Sending status request");
-
-                //Send a "Handshake" packet
-                packet.WriteVarInt(47);
-                packet.WriteString("localhost");
-                packet.WriteShort(25565);
-                packet.WriteVarInt(1);
-                packet.Flush(0);
-
-                //Send a "Status Request" packet
-                packet.Flush(0);
-
-
-                byte[] buffer = new byte[short.MaxValue];
-                packet.stream.Read(buffer, 0, buffer.Length);
-
-
-                var length = packet.ReadVarInt(buffer);
-                var packetType = packet.ReadVarInt(buffer);
-                var jsonLength = packet.ReadVarInt(buffer);
-
-                //Console.WriteLine("Received packet 0x{0} with a length of {1}", packetType.ToString("X2"), length);
-
-                var json = packet.ReadString(buffer, jsonLength);
-                var ping = JsonConvert.DeserializeObject<PingPayload>(json);
+                PingPayload ping = packet.PingStatus(packet);
 
                 Console.ForegroundColor = ConsoleColor.Green;
-                //Console.WriteLine("Version: {0}", ping.Version.Name);
-                //Console.WriteLine("Protocol: {0}", ping.Version.Protocol);
-                //Console.WriteLine("Players Online: {0}/{1}", ping.Players.Online, ping.Players.Max);
 
                 //Initialize a list to hold all users found
                 List<string> users = new List<string>();
@@ -242,36 +227,42 @@ namespace MCPing
                     Console.WriteLine("Players Online: {0}/{1}", ping.Players.Online, ping.Players.Max);
 
                     //Grab the current serverList
-                    ServerList serverList = JsonConvert.DeserializeObject<ServerList>(File.ReadAllText(Constants.serverListPath));
+                    List<ServerList> serverList = JsonConvert.DeserializeObject<List<ServerList>>(File.ReadAllText(Constants.serverListPath));
 
                     //Grab list of predetermined names
                     List<string> namesList = JsonConvert.DeserializeObject<List<string>>(File.ReadAllText(Constants.namesPath));
 
                     //Scan usernames in server
                     if (ping.Players.Sample != null)
-                        foreach (Player player in ping.Players.Sample)
+                        foreach (var player in ping.Players.Sample)
                         //add to users list if corresponding names found
                         {
                             users.Add(player.Name);
                             //if (namesList.Contains(player.Name))
                                // users.Add(player.Name);
                         }
-                            
 
-                    //Add IP and users to serverList object
-                    Dictionary<string, List<string>> dict = serverList.ping;
-                    if (!dict.ContainsKey(ipaddr.ToString()))
+                    //Add information to serverList object
+                    ServerList current = new ServerList
                     {
-                        dict.Add(ipaddr.ToString(), users);
-                    }
+                        time = $"{DateTime.Now.Year}/{DateTime.Now.Month}/{DateTime.Now.Day}, {DateTime.Now.Hour}:{DateTime.Now.Minute}:{DateTime.Now.Second}",
+                        ip = ipaddr.ToString(),
+                        version = ping.Version.Name,
+                        currentPlayers = ping.Players.Online,
+                        maxPlayers = ping.Players.Max,
+                        playersOnline = users
+                    };
+
+                    int index = serverList.FindIndex(f => f.ip == ipaddr.ToString());
+                    if (index < 0)
+                        serverList.Add(current);
                     else
                     {
-                        dict[ipaddr.ToString()] = users;
+                        serverList[index] = current;
                         Console.WriteLine("Known Server");
                     }
-
+                        
                     //Write to file
-                    serverList.ping = dict;
                     string serialized = JsonConvert.SerializeObject(serverList, Formatting.Indented);
                     File.WriteAllText(Constants.serverListPath, serialized);
                     Console.WriteLine("Writing to Config");
@@ -281,9 +272,9 @@ namespace MCPing
                 }
                 else
                 {
-                    Console.ForegroundColor = ConsoleColor.Yellow;
-                    Console.WriteLine($"Incorrect Server Format {ip}");
-                    Console.ResetColor();
+                    //Console.ForegroundColor = ConsoleColor.Yellow;
+                    //Console.WriteLine($"Incorrect Server Format {ip}");
+                    //Console.ResetColor();
                 }
             }
             catch (Exception ex)
@@ -344,69 +335,14 @@ namespace MCPing
             Console.ResetColor();
         }
 
-        
+        struct ServerList
+        {
+            public string time;
+            public string ip;
+            public string version;
+            public int currentPlayers;
+            public int maxPlayers;
+            public List<string> playersOnline;
+        }
     }
-
-    #region Server ping 
-    /// <summary>
-    /// C# represenation of the following JSON file
-    /// https://gist.github.com/thinkofdeath/6927216
-    /// </summary>
-    class PingPayload
-    {
-        /// <summary>
-        /// Protocol that the server is using and the given name
-        /// </summary>
-        [JsonProperty(PropertyName = "version")]
-        public VersionPayload Version { get; set; }
-
-        [JsonProperty(PropertyName = "players")]
-        public PlayersPayload Players { get; set; }
-
-        [JsonProperty(PropertyName = "description")]
-        public JObject Description { get; set; }
-        public string Motd { get { return Description.GetValue("text").ToString(); } }
-
-        /// <summary>
-        /// Server icon, important to note that it's encoded in base 64
-        /// </summary>
-        [JsonProperty(PropertyName = "favicon")]
-        public string Icon { get; set; }
-    }
-
-    class VersionPayload
-    {
-        [JsonProperty(PropertyName = "protocol")]
-        public int Protocol { get; set; }
-
-        [JsonProperty(PropertyName = "name")]
-        public string Name { get; set; }
-    }
-
-    class PlayersPayload
-    {
-        [JsonProperty(PropertyName = "max")]
-        public int Max { get; set; }
-
-        [JsonProperty(PropertyName = "online")]
-        public int Online { get; set; }
-
-        [JsonProperty(PropertyName = "sample")]
-        public List<Player> Sample { get; set; }
-    }
-
-    class Player
-    {
-        [JsonProperty(PropertyName = "name")]
-        public string Name { get; set; }
-
-        [JsonProperty(PropertyName = "id")]
-        public string Id { get; set; }
-    }
-
-    class ServerList
-    {
-        public Dictionary<string, List<string>> ping;
-    }
-    #endregion
 }
