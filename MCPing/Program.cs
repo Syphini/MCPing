@@ -245,7 +245,7 @@ namespace MCPing
                     //Add information to serverList object
                     ServerList current = new ServerList
                     {
-                        time = $"{DateTime.Now.Year}/{DateTime.Now.Month}/{DateTime.Now.Day}, {DateTime.Now.Hour}:{DateTime.Now.Minute}:{DateTime.Now.Second}",
+                        time = $"{DateTime.Now.Year}/{DateTime.Now.Month}/{DateTime.Now.Day}, {DateTime.Now.Hour}:{DateTime.Now.Minute}:{DateTime.Now.Second:D2}",
                         ip = ipaddr.ToString(),
                         version = ping.Version.Name,
                         currentPlayers = ping.Players.Online,
