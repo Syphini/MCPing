@@ -64,7 +64,10 @@ namespace MCPing
             HashSet<string> hashScanList = new HashSet<string>(scannedList);
 
             Console.WriteLine($"IP's to Scan: {ipList.Count}");
-            Console.WriteLine($"Servers already registered: {initServerList.Count}");
+            if (initServerList != null)
+                Console.WriteLine($"Servers already registered: {initServerList.Count}");
+            else
+                Console.WriteLine("No Servers Registered");
 
             Thread writeThread = new Thread(new ParameterizedThreadStart(WriteTimer));
             writeThread.Start(ipList.Count);
@@ -75,7 +78,9 @@ namespace MCPing
                 //instance.Ping(ip);
 
                 //Find an index value corresponding to an IP value in ServerList
-                int index = initServerList.FindIndex(f => f.ip == ip.ToString());
+                int index = -1;
+                if (initServerList != null)
+                    index = initServerList.FindIndex(f => f.ip == ip.ToString());
 
                 if (!hashScanList.Contains(ip.ToString()) || index >= 0)
                 {
