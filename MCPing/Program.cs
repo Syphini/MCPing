@@ -10,32 +10,6 @@ namespace MCPing
 {
     class ServerPing
     {
-        private static readonly Dictionary<char, ConsoleColor> Colours = new Dictionary<char, ConsoleColor>
-        {
-             { '0', ConsoleColor.Black       },
-             { '1', ConsoleColor.DarkBlue    },
-             { '2', ConsoleColor.DarkGreen   },
-             { '3', ConsoleColor.DarkCyan    },
-             { '4', ConsoleColor.DarkRed     },
-             { '5', ConsoleColor.DarkMagenta },
-             { '6', ConsoleColor.Yellow      },
-             { '7', ConsoleColor.Gray        },
-             { '8', ConsoleColor.DarkGray    },
-             { '9', ConsoleColor.Blue        },
-             { 'a', ConsoleColor.Green       },
-             { 'b', ConsoleColor.Cyan        },
-             { 'c', ConsoleColor.Red         },
-             { 'd', ConsoleColor.Magenta     },
-             { 'e', ConsoleColor.Yellow      },
-             { 'f', ConsoleColor.White       },
-             { 'k', Console.ForegroundColor  },
-             { 'l', Console.ForegroundColor  },
-             { 'm', Console.ForegroundColor  },
-             { 'n', Console.ForegroundColor  },
-             { 'o', Console.ForegroundColor  },
-             { 'r', ConsoleColor.White       }
-        };
-
         static bool finishedChecking = false;
         static List<string> scannedList;
         static List<ServerList> initServerList;
@@ -43,6 +17,9 @@ namespace MCPing
         private static void Main(string[] args)
         {
             Console.Title = "Minecraft Server Ping";
+
+            //Annoying me
+            args = null;
 
             List<string> ipList = JsonConvert.DeserializeObject<List<string>>(File.ReadAllText(Constants.ipListPath));
             scannedList = JsonConvert.DeserializeObject<List<string>>(File.ReadAllText(Constants.scannedPath));
@@ -218,64 +195,56 @@ namespace MCPing
                 //Initialize a list to hold all users found
                 List<string> users = new List<string>();
 
-                //Check for specific server settings
-                if (true)//ping.Players.Max == 20 && ping.Version.Name == "1.12.2") //Add on MOTD checks??? ~ Probs null and "" checks
-                {
-                    Console.WriteLine($"Found Server {ip}");
-                    Console.ForegroundColor = ConsoleColor.Yellow;
-                    Console.WriteLine($"Version: {ping.Version.Name}");
-                    Console.WriteLine("Players Online: {0}/{1}", ping.Players.Online, ping.Players.Max);
+                Console.WriteLine($"Found Server {ip}");
+                Console.ForegroundColor = ConsoleColor.Yellow;
+                Console.WriteLine($"Version: {ping.Version.Name}");
+                Console.WriteLine("Players Online: {0}/{1}", ping.Players.Online, ping.Players.Max);
 
-                    //Grab the current serverList
-                    List<ServerList> serverList = JsonConvert.DeserializeObject<List<ServerList>>(File.ReadAllText(Constants.serverListPath));
+                //Grab the current serverList
+                //List<ServerList> serverList = JsonConvert.DeserializeObject<List<ServerList>>(File.ReadAllText(Constants.serverListPath));
 
-                    //Grab list of predetermined names
-                    List<string> namesList = JsonConvert.DeserializeObject<List<string>>(File.ReadAllText(Constants.namesPath));
+                //Grab list of predetermined names
+                List<string> namesList = JsonConvert.DeserializeObject<List<string>>(File.ReadAllText(Constants.namesPath));
 
-                    //Scan usernames in server
-                    if (ping.Players.Sample != null)
-                        foreach (var player in ping.Players.Sample)
-                        //add to users list if corresponding names found
-                        {
-                            users.Add(player.Name);
-                            //if (namesList.Contains(player.Name))
-                               // users.Add(player.Name);
-                        }
-
-                    //Add information to serverList object
-                    ServerList current = new ServerList
+                //Scan usernames in server
+                if (ping.Players.Sample != null)
+                    foreach (var player in ping.Players.Sample)
+                    //add to users list if corresponding names found
                     {
-                        time = $"{DateTime.Now.Year}/{DateTime.Now.Month}/{DateTime.Now.Day}, {DateTime.Now.Hour}:{DateTime.Now.Minute}:{DateTime.Now.Second:D2}",
-                        ip = ipaddr.ToString(),
-                        version = ping.Version.Name,
-                        currentPlayers = ping.Players.Online,
-                        maxPlayers = ping.Players.Max,
-                        playersOnline = users
-                    };
-
-                    int index = serverList.FindIndex(f => f.ip == ipaddr.ToString());
-                    if (index < 0)
-                        serverList.Add(current);
-                    else
-                    {
-                        serverList[index] = current;
-                        Console.WriteLine("Known Server");
+                        users.Add(player.Name);
+                        //if (namesList.Contains(player.Name))
+                        // users.Add(player.Name);
                     }
-                        
-                    //Write to file
-                    string serialized = JsonConvert.SerializeObject(serverList, Formatting.Indented);
-                    File.WriteAllText(Constants.serverListPath, serialized);
-                    Console.WriteLine("Writing to Config");
 
-                    Console.ResetColor();
+                //Add information to serverList object
+                ServerList current = new ServerList
+                {
+                    time = $"{DateTime.Now.Year:D4}/{DateTime.Now.Month:D2}/{DateTime.Now.Day:D2}, {DateTime.Now.Hour:D2}:{DateTime.Now.Minute:D2}:{DateTime.Now.Second:D2}",
+                    ip = ipaddr.ToString(),
+                    version = ping.Version.Name,
+                    currentPlayers = ping.Players.Online,
+                    maxPlayers = ping.Players.Max,
+                    playersOnline = users
+                };
 
-                }
+                List<ServerList> serverList = new List<ServerList>(initServerList);
+
+                int index = initServerList.FindIndex(f => f.ip == ipaddr.ToString());
+                if (index < 0)
+                    serverList.Add(current);
                 else
                 {
-                    //Console.ForegroundColor = ConsoleColor.Yellow;
-                    //Console.WriteLine($"Incorrect Server Format {ip}");
-                    //Console.ResetColor();
+                    serverList[index] = current;
+                    Console.WriteLine("Known Server");
                 }
+
+
+                //Write to file
+                string serialized = JsonConvert.SerializeObject(serverList, Formatting.Indented);
+                File.WriteAllText(Constants.serverListPath, serialized);
+                Console.WriteLine("Writing to Config");
+
+                Console.ResetColor();
             }
             catch (Exception ex)
             {
@@ -305,34 +274,6 @@ namespace MCPing
                 Console.ResetColor();
             }
 
-        }
-
-        private void WriteMotd(PingPayload ping)
-        {
-            Console.Write("Motd: ");
-            var chars = ping.Motd.ToCharArray();
-            for (var i = 0; i < ping.Motd.Length; i++)
-            {
-                try
-                {
-                    if (chars[i] == '\u00A7' && Colours.ContainsKey(chars[i + 1]))
-                    {
-                        Console.ForegroundColor = Colours[chars[i + 1]];
-                        continue;
-                    }
-                    if (chars[i - 1] == '\u00A7' && Colours.ContainsKey(chars[i]))
-                    {
-                        continue;
-                    }
-                }
-                catch (IndexOutOfRangeException)
-                {
-                    // End of string
-                }
-                Console.Write(chars[i]);
-            }
-            Console.WriteLine();
-            Console.ResetColor();
         }
 
         struct ServerList
