@@ -4,6 +4,7 @@ using System.IO;
 using System.Net;
 using System.Net.Sockets;
 using System.Threading;
+using System.Threading.Tasks;
 using Newtonsoft.Json;
 
 namespace MCPing
@@ -13,6 +14,9 @@ namespace MCPing
         static bool finishedChecking = false;
         static List<string> scannedList;
         static List<ServerList> initServerList;
+        static List<ServerList> currentServerList;
+
+        static int currentCount = 0;
 
         private static void Main(string[] args)
         {
@@ -24,15 +28,16 @@ namespace MCPing
             List<string> ipList = JsonConvert.DeserializeObject<List<string>>(File.ReadAllText(Constants.ipListPath));
             scannedList = JsonConvert.DeserializeObject<List<string>>(File.ReadAllText(Constants.scannedPath));
             initServerList = JsonConvert.DeserializeObject<List<ServerList>>(File.ReadAllText(Constants.serverListPath));
+            currentServerList = initServerList;
 
             ipList.AddRange(CalculateRange("139.99.0.0", "139.99.127.255"));
-            ipList.AddRange(CalculateRange("158.62.200.0", "158.62.207.255"));
-            ipList.AddRange(CalculateRange("162.244.164.0", "162.244.167.255"));
-            ipList.AddRange(CalculateRange("147.135.0.0", "147.135.255.255"));
-            ipList.AddRange(CalculateRange("104.193.176.0", "104.193.183.255"));
-            ipList.AddRange(CalculateRange("149.56.0.0", "149.56.255.255"));
-            ipList.AddRange(CalculateRange("51.79.0.0", "51.79.255.255"));
-            ipList.AddRange(CalculateRange("135.148.0.0", "135.148.128.255"));
+            //ipList.AddRange(CalculateRange("158.62.200.0", "158.62.207.255"));
+            //ipList.AddRange(CalculateRange("162.244.164.0", "162.244.167.255"));
+            //ipList.AddRange(CalculateRange("147.135.0.0", "147.135.255.255"));
+            //ipList.AddRange(CalculateRange("104.193.176.0", "104.193.183.255"));
+            //ipList.AddRange(CalculateRange("149.56.0.0", "149.56.255.255"));
+            //ipList.AddRange(CalculateRange("51.79.0.0", "51.79.255.255"));
+            //ipList.AddRange(CalculateRange("135.148.0.0", "135.148.128.255"));
 
             //~NOT IN USE
             //ipList.AddRange(CalculateRange("192.95.0.0", "192.95.63.255"));
@@ -49,16 +54,18 @@ namespace MCPing
             foreach (string ip in ipList)
             {
                 ServerPing instance = new ServerPing();
-                //instance.Ping(ip);
 
                 //Find an index value corresponding to an IP value in ServerList
                 int index = initServerList.FindIndex(f => f.ip == ip.ToString());
 
                 if (!hashScanList.Contains(ip.ToString()) || index >= 0)
                 {
-                    Thread thread = new Thread(new ParameterizedThreadStart(instance.Ping));
-                    thread.Start(ip);
-                    thread.Name = ip;
+                    string tmp = ip;
+                    Thread thread = new Thread(() => instance.Ping(tmp))
+                    {
+                        Name = ip
+                    };
+                    thread.Start();
                     Thread.Sleep(150);
                 }
 
@@ -66,6 +73,7 @@ namespace MCPing
 
             finishedChecking = true;
 
+            Console.ResetColor();
             Console.WriteLine("End of list");
             //Console.ForegroundColor = ConsoleColor.Yellow;
             //Console.WriteLine("\nEnd of IP List\nQuitting...");
@@ -79,27 +87,32 @@ namespace MCPing
             for (int i = 0; i < (int)count / modif; i++)
             {
                 Thread.Sleep(150 * modif);
-                if (!finishedChecking)
+
+                try
                 {
-                    try
-                    {
-                        string output = JsonConvert.SerializeObject(scannedList, Formatting.Indented);
-                        File.WriteAllText(Constants.scannedPath, output);
-                        Console.WriteLine("Saved");
-                    }
-                    catch (Exception ex)
-                    {
-                        if (ex is InvalidOperationException)
-                            Console.WriteLine($"Error: InvalidOperationException");
-                        else if (ex is IOException)
-                            Console.WriteLine("Error: IO Exception");
-                        else
-                            Console.WriteLine(ex);
-                    }
+                    string scanOutput = JsonConvert.SerializeObject(scannedList, Formatting.Indented);
+                    File.WriteAllText(Constants.scannedPath, scanOutput);
+                    Console.WriteLine("Saved");
+
+                    //Write to file
+                    string listOutput = JsonConvert.SerializeObject(currentServerList, Formatting.Indented);
+                    Task asyncTask = WriteFileAsync(Constants.serverListPath, listOutput);
+                    Console.WriteLine("Writing to Config");
                 }
-                else
+                catch (Exception ex)
+                {
+                    if (ex is InvalidOperationException)
+                        Console.WriteLine($"Error: InvalidOperationException");
+                    else if (ex is IOException)
+                        Console.WriteLine("Error: IO Exception");
+                    else
+                        Console.WriteLine($"Error Writing: \n{ex}");
+                }
+
+                if (finishedChecking)
                 {
                     Console.WriteLine("FINISHED CHECKING");
+                    Console.WriteLine($"Servers count returned in this scan: {currentCount}");
                     return;
                 }
             }
@@ -186,19 +199,20 @@ namespace MCPing
 
             try
             {
-                Packet packet = new Packet(client.GetStream(), new List<byte>());
-
-                PingPayload ping = packet.PingStatus(packet);
+                Packet packet = new Packet(client.GetStream(), new List<byte>(), ipaddr.ToString());
 
                 Console.ForegroundColor = ConsoleColor.Green;
+                Console.WriteLine($"Found Server {ip}");
+
+                PingPayload ping = packet.PingStatus(packet);
 
                 //Initialize a list to hold all users found
                 List<string> users = new List<string>();
 
-                Console.WriteLine($"Found Server {ip}");
                 Console.ForegroundColor = ConsoleColor.Yellow;
                 Console.WriteLine($"Version: {ping.Version.Name}");
                 Console.WriteLine("Players Online: {0}/{1}", ping.Players.Online, ping.Players.Max);
+                //Console.WriteLine(ping.Description);
 
                 //Grab the current serverList
                 //List<ServerList> serverList = JsonConvert.DeserializeObject<List<ServerList>>(File.ReadAllText(Constants.serverListPath));
@@ -217,7 +231,7 @@ namespace MCPing
                     }
 
                 //Add information to serverList object
-                ServerList current = new ServerList
+                ServerList info = new ServerList
                 {
                     time = $"{DateTime.Now.Year:D4}/{DateTime.Now.Month:D2}/{DateTime.Now.Day:D2}, {DateTime.Now.Hour:D2}:{DateTime.Now.Minute:D2}:{DateTime.Now.Second:D2}",
                     ip = ipaddr.ToString(),
@@ -227,53 +241,61 @@ namespace MCPing
                     playersOnline = users
                 };
 
-                List<ServerList> serverList = new List<ServerList>(initServerList);
-
                 int index = initServerList.FindIndex(f => f.ip == ipaddr.ToString());
                 if (index < 0)
-                    serverList.Add(current);
+                    currentServerList.Add(info);
                 else
                 {
-                    serverList[index] = current;
+                    currentServerList[index] = info;
                     Console.WriteLine("Known Server");
                 }
 
-
-                //Write to file
-                string serialized = JsonConvert.SerializeObject(serverList, Formatting.Indented);
-                File.WriteAllText(Constants.serverListPath, serialized);
-                Console.WriteLine("Writing to Config");
+                currentCount++;
 
                 Console.ResetColor();
             }
             catch (Exception ex)
             {
-                Console.ForegroundColor = ConsoleColor.Red;
-
                 if (ex is NullReferenceException)
                 {
-                    Console.WriteLine($"Null stream: \n{ex}");
+                    ThrowError(ipaddr.ToString(),  "Object was Null", ex);
                 }
                 else if (ex is IOException)
-                {
-                    Console.WriteLine($"Stream forcibly closed: \n{ex}");
-                }
-                else
                 {
                     /*
                     * If an IOException is thrown then the server didn't 
                     * send us a VarInt or sent us an invalid one.
                     */
-
-                    Console.WriteLine("Unable to read packet length from server,");
-                    Console.WriteLine("are you sure it's a Minecraft server?");
-                    Console.WriteLine("Here are the details:");
-                    Console.WriteLine(ex);
+                    ThrowError(ipaddr.ToString(), "Stream forcibly closed", ex);
                 }
-
-                Console.ResetColor();
+                else
+                {
+                    ThrowError(ipaddr.ToString(), "New Error", ex);
+                }
             }
 
+        }
+
+        static async Task WriteFileAsync(string path, string content)
+        {
+            using (StreamWriter outputFile = new StreamWriter(path))
+            {
+                await outputFile.WriteAsync(content);
+            }
+        }
+
+        public static void ThrowError(string ip, string message)
+        {
+            Console.ForegroundColor = ConsoleColor.Red;
+            Console.WriteLine($"{ip} ---- {message}");
+            Console.ResetColor();
+        }
+
+        public static void ThrowError(string ip, string message, Exception ex)
+        {
+            Console.ForegroundColor = ConsoleColor.Red;
+            Console.WriteLine($"{ip} ---- {message}: \n{ex}");
+            Console.ResetColor();
         }
 
         struct ServerList
