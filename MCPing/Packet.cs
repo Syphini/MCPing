@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using System.Net.Sockets;
 using System.IO;
 using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 
 namespace MCPing
 {
@@ -14,11 +15,47 @@ namespace MCPing
         public NetworkStream stream;
         public List<byte> buffer;
         public int offset;
+        public string ip;
 
-        public Packet(NetworkStream _stream, List<byte> _buffer)
+        PingPayload ErrorPayload()
+        {
+            //CONVERT TO DESCRIPTION/CHAT FORMAT??
+            string desc = "{\"text\": \"ERROR\"}";
+
+            return new PingPayload
+            {
+                Players = new PingPayload.PlayersPayload()
+                {
+                    Online = 0,
+                    Max = 0,
+                    Sample = new List<PingPayload.Player>()
+                    {
+                        new PingPayload.Player()
+                        {
+                            Id = "ERROR",
+                            Name = "ERROR"
+                        }
+                    }
+                },
+
+                Version = new PingPayload.VersionPayload()
+                {
+                    Name = "ERROR",
+                    Protocol = 0
+                },
+
+                Icon = "ERROR",
+
+                Description = JObject.Parse(desc)
+
+            };
+        }
+
+        public Packet(NetworkStream _stream, List<byte> _buffer, string _ip)
         {
             stream = _stream;
             buffer = _buffer;
+            ip = _ip;
         }
 
         public PingPayload PingStatus(Packet packet)
@@ -46,8 +83,33 @@ namespace MCPing
 
             //Console.WriteLine("Received packet 0x{0} with a length of {1}", packetType.ToString("X2"), length);
 
-            var json = packet.ReadString(buffer, jsonLength);
-            return JsonConvert.DeserializeObject<PingPayload>(json);
+            string json = "";
+            try
+            {
+                json = packet.ReadString(buffer, jsonLength);
+
+                if (json != null)
+                {
+                    return JsonConvert.DeserializeObject<PingPayload>(json);
+                }
+
+                ServerPing.ThrowError(packet.ip, "Null Object");
+                return ErrorPayload();
+            }
+            catch (Exception ex)
+            {
+                if (ex is JsonSerializationException)
+                {
+                    ServerPing.ThrowError(packet.ip, "Serialization Error", ex);
+                }
+                else
+                {
+                    ServerPing.ThrowError(packet.ip, "Returning Error Payload", ex);
+                }
+                ServerPing.ThrowError(packet.ip, json);
+                return ErrorPayload();
+            }
+
         }
 
         #region Read Methods
