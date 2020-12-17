@@ -63,4 +63,9 @@ namespace MCPing
             public string Id { get; set; }
         }
     }
+    
+    public class PingPayloadOld
+    {
+
+    }
 }
