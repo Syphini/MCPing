@@ -40,8 +40,8 @@ namespace MCPing
             packet.stream.Read(buffer, 0, buffer.Length);
 
 
-            var length = packet.ReadVarInt(buffer);
-            var packetType = packet.ReadVarInt(buffer);
+            packet.ReadVarInt(buffer);
+            packet.ReadVarInt(buffer);
             var jsonLength = packet.ReadVarInt(buffer);
 
             //Console.WriteLine("Received packet 0x{0} with a length of {1}", packetType.ToString("X2"), length);
