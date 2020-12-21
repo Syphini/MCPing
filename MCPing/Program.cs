@@ -32,26 +32,41 @@ namespace MCPing
             initServerList = JsonConvert.DeserializeObject<List<ServerList>>(File.ReadAllText(Constants.serverListPath));
             currentServerList = initServerList;
 
-            //ipList.AddRange(CalculateRange("50.77.114.8", "50.77.114.15"));
+            //HOSTINGER
+            ipList.AddRange(CalculateRange("31.170.160.0", "31.170.163.255"));
+            ipList.AddRange(CalculateRange("31.170.166.0", "31.170.167.255"));
+            ipList.AddRange(CalculateRange("31.220.104.0", "31.220.105.255"));
+            ipList.AddRange(CalculateRange("31.220.107.0", "31.220.109.255"));
+            ipList.AddRange(CalculateRange("31.220.18.0", "31.220.18.255"));
+            ipList.AddRange(CalculateRange("31.220.22.0", "31.220.22.255"));
+            ipList.AddRange(CalculateRange("31.220.48.0", "31.220.63.255"));
+
             //MCPROHOSTING
             ipList.AddRange(CalculateRange("104.193.176.0", "104.193.183.255"));
             ipList.AddRange(CalculateRange("162.244.164.0", "162.244.167.255"));
 
+            //APEX HOSTING
             ipList.AddRange(CalculateRange("139.99.0.0", "139.99.127.255"));
+
+            //BISECT HOSTING
             ipList.AddRange(CalculateRange("158.62.200.0", "158.62.207.255"));
+
+            //OVH
             ipList.AddRange(CalculateRange("147.135.0.0", "147.135.255.255"));
             ipList.AddRange(CalculateRange("149.56.0.0", "149.56.255.255"));
             ipList.AddRange(CalculateRange("51.79.0.0", "51.79.255.255"));
             ipList.AddRange(CalculateRange("135.148.0.0", "135.148.128.255"));
 
-            //~NOT IN USE
-            //ipList.AddRange(CalculateRange("54.38.50.0", "54.38.255.255"));
-            //ipList.AddRange(CalculateRange("192.95.0.0", "192.95.63.255"));
-            //ipList.AddRange(CalculateRange("192.99.0.0", "192.99.255.255"));
-
             HashSet<string> hashScanList = new HashSet<string>(scannedList);
 
-            Console.WriteLine($"IP's to Scan: {ipList.Count}");
+            int count = 0;
+            foreach (var item in ipList)
+            {
+                if (!hashScanList.Contains(item))
+                    count++;
+            }
+
+            Console.WriteLine($"IP's to Scan: {count}");
             Console.WriteLine($"Servers already registered: {initServerList.Count}");
 
             Thread writeThread = new Thread(new ParameterizedThreadStart(WriteTimer));
@@ -62,10 +77,11 @@ namespace MCPing
                 ServerPing instance = new ServerPing();
 
                 //Find an index value corresponding to an IP value in ServerList
-                int index = initServerList.FindIndex(f => f.ip == ip.ToString());
+                var find = initServerList.Find(x => x.ip == ip.ToString());
 
-                if (!hashScanList.Contains(ip.ToString()) || index >= 0)
+                if (!hashScanList.Contains(ip.ToString()) || find.ip == ip.ToString())
                 {
+                    //ThrowError(ip, find.ip);
                     string tmp = ip;
                     Thread thread = new Thread(() => instance.Ping(tmp))
                     {
@@ -188,22 +204,16 @@ namespace MCPing
             }
 
             var task = client.ConnectAsync(ipaddr, 25565);
-            //Console.WriteLine("Connecting to Minecraft server..");
 
             int attempts = 0;
             while (!task.IsCompleted && attempts < 3)
             {
-                //Console.WriteLine("Connecting..");
                 Thread.Sleep(250);
                 attempts++;
             }
 
             if (!client.Connected)
             {
-                //Console.ForegroundColor = ConsoleColor.Red;
-                //Console.WriteLine($"Unable to connect to {ip}");
-                //Console.ResetColor();
-
                 if (!scannedList.Contains(ipaddr.ToString()))
                     scannedList.Add(ipaddr.ToString());
                 return;
@@ -214,7 +224,7 @@ namespace MCPing
                 Packet packet = new Packet(client.GetStream(), new List<byte>(), ipaddr.ToString());
 
                 Console.ForegroundColor = ConsoleColor.Green;
-                Console.WriteLine($"Found Server {ip}");
+                Console.WriteLine($"{currentCount} -- Found Server {ip}");
 
                 PingPayload ping = packet.PingStatus(packet);
 
@@ -222,12 +232,8 @@ namespace MCPing
                 List<string> users = new List<string>();
 
                 Console.ForegroundColor = ConsoleColor.Yellow;
-                Console.WriteLine($"Version: {ping.Version.Name}");
-                Console.WriteLine("Players Online: {0}/{1}", ping.Players.Online, ping.Players.Max);
+                Console.WriteLine($"-------------\n{ip}\nVersion: {ping.Version.Name}\nPlayers Online: {ping.Players.Online}/{ping.Players.Max}\n-------------");
                 //Console.WriteLine(ping.Description);
-
-                //Grab the current serverList
-                //List<ServerList> serverList = JsonConvert.DeserializeObject<List<ServerList>>(File.ReadAllText(Constants.serverListPath));
 
                 //Grab list of predetermined names
                 List<string> namesList = JsonConvert.DeserializeObject<List<string>>(File.ReadAllText(Constants.namesPath));
@@ -235,11 +241,11 @@ namespace MCPing
                 //Scan usernames in server
                 if (ping.Players.Sample != null)
                     foreach (var player in ping.Players.Sample)
-                    //add to users list if corresponding names found
                     {
                         users.Add(player.Name);
                         try
                         {
+                            //add to users list if corresponding names found
                             if (namesList.Contains(player.Name))
                             {
                                 List<string> nameList = JsonConvert.DeserializeObject<List<string>>(File.ReadAllText(Constants.ipListPath));
@@ -271,7 +277,7 @@ namespace MCPing
                 else
                 {
                     currentServerList[index] = info;
-                    Console.WriteLine("Known Server");
+                    //Console.WriteLine("Known Server");
                 }
 
                 currentCount++;
