@@ -16,6 +16,8 @@ namespace MCPing
         static List<ServerList> initServerList;
         static List<ServerList> currentServerList;
 
+        const int sleepTime = 150;
+
         static int currentCount = 0;
 
         private static void Main(string[] args)
@@ -30,14 +32,15 @@ namespace MCPing
             initServerList = JsonConvert.DeserializeObject<List<ServerList>>(File.ReadAllText(Constants.serverListPath));
             currentServerList = initServerList;
 
+            ipList.AddRange(CalculateRange("54.38.0.0", "54.38.255.255"));
             ipList.AddRange(CalculateRange("139.99.0.0", "139.99.127.255"));
-            //ipList.AddRange(CalculateRange("158.62.200.0", "158.62.207.255"));
-            //ipList.AddRange(CalculateRange("162.244.164.0", "162.244.167.255"));
-            //ipList.AddRange(CalculateRange("147.135.0.0", "147.135.255.255"));
-            //ipList.AddRange(CalculateRange("104.193.176.0", "104.193.183.255"));
-            //ipList.AddRange(CalculateRange("149.56.0.0", "149.56.255.255"));
-            //ipList.AddRange(CalculateRange("51.79.0.0", "51.79.255.255"));
-            //ipList.AddRange(CalculateRange("135.148.0.0", "135.148.128.255"));
+            ipList.AddRange(CalculateRange("158.62.200.0", "158.62.207.255"));
+            ipList.AddRange(CalculateRange("162.244.164.0", "162.244.167.255"));
+            ipList.AddRange(CalculateRange("147.135.0.0", "147.135.255.255"));
+            ipList.AddRange(CalculateRange("104.193.176.0", "104.193.183.255"));
+            ipList.AddRange(CalculateRange("149.56.0.0", "149.56.255.255"));
+            ipList.AddRange(CalculateRange("51.79.0.0", "51.79.255.255"));
+            ipList.AddRange(CalculateRange("135.148.0.0", "135.148.128.255"));
 
             //~NOT IN USE
             //ipList.AddRange(CalculateRange("192.95.0.0", "192.95.63.255"));
@@ -66,7 +69,7 @@ namespace MCPing
                         Name = ip
                     };
                     thread.Start();
-                    Thread.Sleep(150);
+                    Thread.Sleep(sleepTime);
                 }
 
             }
@@ -84,17 +87,17 @@ namespace MCPing
         {
             const int modif = 100;
 
+            Thread.Sleep(sleepTime * modif);
+
             for (int i = 0; i < (int)count / modif; i++)
             {
-                Thread.Sleep(150 * modif);
-
                 try
                 {
+                    //Write to file
                     string scanOutput = JsonConvert.SerializeObject(scannedList, Formatting.Indented);
                     File.WriteAllText(Constants.scannedPath, scanOutput);
                     Console.WriteLine("Saved");
 
-                    //Write to file
                     string listOutput = JsonConvert.SerializeObject(currentServerList, Formatting.Indented);
                     Task asyncTask = WriteFileAsync(Constants.serverListPath, listOutput);
                     Console.WriteLine("Writing to Config");
@@ -107,6 +110,8 @@ namespace MCPing
                         Console.WriteLine("Error: IO Exception");
                     else
                         Console.WriteLine($"Error Writing: \n{ex}");
+
+                    continue;
                 }
 
                 if (finishedChecking)
@@ -115,6 +120,8 @@ namespace MCPing
                     Console.WriteLine($"Servers count returned in this scan: {currentCount}");
                     return;
                 }
+
+                Thread.Sleep(sleepTime * modif);
             }
         }
 
@@ -173,7 +180,9 @@ namespace MCPing
 
             //TRY NOT TO USE DNS, IT CURRENTLY DOES NOT WORK
             if (!IPAddress.TryParse(ip.ToString(), out IPAddress ipaddr))
-                ipaddr = Dns.GetHostEntry(ip.ToString()).AddressList[0];
+            {
+                ThrowError(ipaddr.ToString(), $"INVALID IP");
+            }
 
             var task = client.ConnectAsync(ipaddr, 25565);
             //Console.WriteLine("Connecting to Minecraft server..");
@@ -226,8 +235,20 @@ namespace MCPing
                     //add to users list if corresponding names found
                     {
                         users.Add(player.Name);
-                        //if (namesList.Contains(player.Name))
-                        // users.Add(player.Name);
+                        try
+                        {
+                            if (namesList.Contains(player.Name))
+                            {
+                                List<string> nameList = JsonConvert.DeserializeObject<List<string>>(File.ReadAllText(Constants.ipListPath));
+                                nameList.Add(ip.ToString());
+                                string nameSave = JsonConvert.SerializeObject(nameList, Formatting.Indented);
+                                File.WriteAllText(Constants.ipListPath, nameSave);
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            ThrowError(ip.ToString(), $"FOUND NAMES BUT NOT SAVED", ex);
+                        }
                     }
 
                 //Add information to serverList object

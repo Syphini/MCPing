@@ -62,10 +62,22 @@ namespace MCPing
             [JsonProperty(PropertyName = "id")]
             public string Id { get; set; }
         }
+
+        public struct PingPayloadOld
+        {
+            [JsonProperty(PropertyName = "version")]
+            public VersionPayload Version { get; set; }
+
+            [JsonProperty(PropertyName = "players")]
+            public PlayersPayload Players { get; set; }
+
+            [JsonProperty(PropertyName = "description")]
+            public JValue Description { get; set; }
+
+            [JsonProperty(PropertyName = "favicon")]
+            public string Icon { get; set; }
+        }
     }
     
-    public class PingPayloadOld
-    {
 
-    }
 }
