@@ -101,6 +101,14 @@ namespace MCPing
                 if (ex is JsonSerializationException)
                 {
                     ServerPing.ThrowError(packet.ip, "Serialization Error", ex);
+                    var old = JsonConvert.DeserializeObject<PingPayload.PingPayloadOld>(json);
+                    return new PingPayload()
+                    {
+                        Players = old.Players,
+                        Version = old.Version,
+                        Icon = old.Icon,
+                        //Description = JObject.Parse((string)old.Description)
+                    };
                 }
                 else
                 {
