@@ -32,17 +32,20 @@ namespace MCPing
             initServerList = JsonConvert.DeserializeObject<List<ServerList>>(File.ReadAllText(Constants.serverListPath));
             currentServerList = initServerList;
 
-            ipList.AddRange(CalculateRange("54.38.0.0", "54.38.255.255"));
+            //ipList.AddRange(CalculateRange("50.77.114.8", "50.77.114.15"));
+            //MCPROHOSTING
+            ipList.AddRange(CalculateRange("104.193.176.0", "104.193.183.255"));
+            ipList.AddRange(CalculateRange("162.244.164.0", "162.244.167.255"));
+
             ipList.AddRange(CalculateRange("139.99.0.0", "139.99.127.255"));
             ipList.AddRange(CalculateRange("158.62.200.0", "158.62.207.255"));
-            ipList.AddRange(CalculateRange("162.244.164.0", "162.244.167.255"));
             ipList.AddRange(CalculateRange("147.135.0.0", "147.135.255.255"));
-            ipList.AddRange(CalculateRange("104.193.176.0", "104.193.183.255"));
             ipList.AddRange(CalculateRange("149.56.0.0", "149.56.255.255"));
             ipList.AddRange(CalculateRange("51.79.0.0", "51.79.255.255"));
             ipList.AddRange(CalculateRange("135.148.0.0", "135.148.128.255"));
 
             //~NOT IN USE
+            //ipList.AddRange(CalculateRange("54.38.50.0", "54.38.255.255"));
             //ipList.AddRange(CalculateRange("192.95.0.0", "192.95.63.255"));
             //ipList.AddRange(CalculateRange("192.99.0.0", "192.99.255.255"));
 
