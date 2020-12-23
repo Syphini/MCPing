@@ -32,6 +32,8 @@ namespace MCPing
             initServerList = JsonConvert.DeserializeObject<List<ServerList>>(File.ReadAllText(Constants.serverListPath));
             currentServerList = initServerList;
 
+            //CURRENT ~
+
             //HOSTINGER
             ipList.AddRange(CalculateRange("31.170.160.0", "31.170.163.255"));
             ipList.AddRange(CalculateRange("31.170.166.0", "31.170.167.255"));
@@ -52,10 +54,11 @@ namespace MCPing
             ipList.AddRange(CalculateRange("158.62.200.0", "158.62.207.255"));
 
             //OVH
+            ipList.AddRange(CalculateRange("135.148.0.0", "135.148.128.255"));
             ipList.AddRange(CalculateRange("147.135.0.0", "147.135.255.255"));
             ipList.AddRange(CalculateRange("149.56.0.0", "149.56.255.255"));
             ipList.AddRange(CalculateRange("51.79.0.0", "51.79.255.255"));
-            ipList.AddRange(CalculateRange("135.148.0.0", "135.148.128.255"));
+            ipList.AddRange(CalculateRange("51.81.0.0", "51.81.255.255"));
 
             HashSet<string> hashScanList = new HashSet<string>(scannedList);
 
@@ -136,7 +139,7 @@ namespace MCPing
                 if (finishedChecking)
                 {
                     Console.WriteLine("FINISHED CHECKING");
-                    Console.WriteLine($"Servers count returned in this scan: {currentCount}");
+                    Console.WriteLine($"Server count returned for this scan: {currentCount}");
                     return;
                 }
 
@@ -214,7 +217,8 @@ namespace MCPing
 
             if (!client.Connected)
             {
-                if (!scannedList.Contains(ipaddr.ToString()))
+                //Test for if in scannedList or serverList
+                if (!scannedList.Contains(ipaddr.ToString()) && initServerList.FindIndex(x => x.ip == ip.ToString()) == -1)
                     scannedList.Add(ipaddr.ToString());
                 return;
             }
@@ -225,6 +229,7 @@ namespace MCPing
 
                 Console.ForegroundColor = ConsoleColor.Green;
                 Console.WriteLine($"{currentCount} -- Found Server {ip}");
+                Console.ResetColor();
 
                 PingPayload ping = packet.PingStatus(packet);
 
