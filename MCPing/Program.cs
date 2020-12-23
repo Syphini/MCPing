@@ -33,6 +33,7 @@ namespace MCPing
             currentServerList = initServerList;
 
             //CURRENT ~
+            //I WANT TO TEST IF THIS WORKS
 
             //HOSTINGER
             ipList.AddRange(CalculateRange("31.170.160.0", "31.170.163.255"));
