@@ -220,6 +220,7 @@ namespace MCPing
                 //Test for if in scannedList or serverList
                 if (!scannedList.Contains(ipaddr.ToString()) && initServerList.FindIndex(x => x.ip == ip.ToString()) == -1)
                     scannedList.Add(ipaddr.ToString());
+                client.Close();
                 return;
             }
 
@@ -232,6 +233,7 @@ namespace MCPing
                 Console.ResetColor();
 
                 PingPayload ping = packet.PingStatus(packet);
+                client.Close();
 
                 //Initialize a list to hold all users found
                 List<string> users = new List<string>();
