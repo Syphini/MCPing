@@ -17,6 +17,8 @@ namespace MCPing
         public int offset;
         public string ip;
 
+        static Dictionary<string, string> testList = new Dictionary<string, string>();
+
         PingPayload ErrorPayload()
         {
             //CONVERT TO DESCRIPTION/CHAT FORMAT??
@@ -63,8 +65,8 @@ namespace MCPing
             //Console.WriteLine("Sending status request");
 
             //Send a "Handshake" packet
-            packet.WriteVarInt(47);
-            packet.WriteString("localhost");
+            packet.WriteVarInt(754);
+            packet.WriteString(packet.ip);
             packet.WriteShort(25565);
             packet.WriteVarInt(1);
             packet.Flush(0);
@@ -72,21 +74,23 @@ namespace MCPing
             //Send a "Status Request" packet
             packet.Flush(0);
 
-
+            #region Read Data
             byte[] buffer = new byte[short.MaxValue];
             packet.stream.Read(buffer, 0, buffer.Length);
 
+            var length = packet.ReadVarInt(buffer);
+            var packetType = packet.ReadVarInt(buffer);
 
-            packet.ReadVarInt(buffer);
-            packet.ReadVarInt(buffer);
+            ServerPing.ThrowError(ip, $"Received packet 0x{packetType:X2} with a length of {length}");
+
             var jsonLength = packet.ReadVarInt(buffer);
-
-            //Console.WriteLine("Received packet 0x{0} with a length of {1}", packetType.ToString("X2"), length);
+            #endregion
 
             string json = "";
             try
             {
                 json = packet.ReadString(buffer, jsonLength);
+                ServerPing.ThrowError(ip, json.Length.ToString());
 
                 if (json != null)
                 {
@@ -114,10 +118,9 @@ namespace MCPing
                 {
                     ServerPing.ThrowError(packet.ip, "Returning Error Payload", ex);
                 }
-                ServerPing.ThrowError(packet.ip, json);
+
                 return ErrorPayload();
             }
-
         }
 
         #region Read Methods
