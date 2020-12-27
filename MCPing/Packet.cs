@@ -91,8 +91,6 @@ namespace MCPing
                 json = packet.ReadString(buffer, jsonLength);
 
                 ServerPing.ThrowError(ip, json.Length.ToString());
-                TestSerialize(json);
-                //ServerPing.ThrowError(packet.ip, json);
 
                 if (json != null)
                 {
@@ -123,13 +121,6 @@ namespace MCPing
 
                 return ErrorPayload();
             }
-        }
-
-        void TestSerialize(string json)
-        {
-            testList.Add(ip, json);
-            var testOut = JsonConvert.SerializeObject(testList, Formatting.Indented);
-            File.WriteAllText("config/test.json", testOut);
         }
 
         #region Read Methods

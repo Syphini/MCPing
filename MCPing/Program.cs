@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Collections.Concurrent;
 using System.IO;
 using System.Net;
 using System.Net.Sockets;
@@ -13,8 +14,12 @@ namespace MCPing
     {
         static bool finishedChecking = false;
         static List<string> scannedList;
-        static List<ServerList> initServerList;
-        static List<ServerList> currentServerList;
+
+        //static List<ServerList> initServerList;
+        //static List<ServerList> currentServerList;
+
+        static Dictionary<string, ServerList> initServerDict;
+        static ConcurrentDictionary<string, ServerList> concurrentServerDict;
 
         const int sleepTime = 150;
 
@@ -27,10 +32,15 @@ namespace MCPing
             //Annoying me
             args = null;
 
+            //Simplify ~~
             List<string> ipList = JsonConvert.DeserializeObject<List<string>>(File.ReadAllText(Constants.ipListPath));
             scannedList = JsonConvert.DeserializeObject<List<string>>(File.ReadAllText(Constants.scannedPath));
-            initServerList = JsonConvert.DeserializeObject<List<ServerList>>(File.ReadAllText(Constants.serverListPath));
-            currentServerList = initServerList;
+            
+            //initServerList = JsonConvert.DeserializeObject<List<ServerList>>(File.ReadAllText(Constants.serverListPath));
+            //currentServerList = initServerList;
+
+            initServerDict = JsonConvert.DeserializeObject<Dictionary<string, ServerList>>(File.ReadAllText(Constants.concurrentDictPath));
+            concurrentServerDict = new ConcurrentDictionary<string, ServerList>(initServerDict);
 
             //CURRENT ~
 
@@ -70,7 +80,7 @@ namespace MCPing
             }
 
             Console.WriteLine($"IP's to Scan: {count}");
-            Console.WriteLine($"Servers already registered: {initServerList.Count}");
+            Console.WriteLine($"Servers already registered: {initServerDict.Count}");
 
             Thread writeThread = new Thread(new ParameterizedThreadStart(WriteTimer));
             writeThread.Start(ipList.Count);
@@ -79,10 +89,7 @@ namespace MCPing
             {
                 ServerPing instance = new ServerPing();
 
-                //Find an index value corresponding to an IP value in ServerList
-                var find = initServerList.Find(x => x.ip == ip.ToString());
-
-                if (!hashScanList.Contains(ip.ToString()) || find.ip == ip.ToString())
+                if (!hashScanList.Contains(ip.ToString()) || initServerDict.ContainsKey(ip.ToString()))
                 {
                     //ThrowError(ip, find.ip);
                     string tmp = ip;
@@ -120,8 +127,8 @@ namespace MCPing
                     File.WriteAllText(Constants.scannedPath, scanOutput);
                     Console.WriteLine("Saved");
 
-                    string listOutput = JsonConvert.SerializeObject(currentServerList, Formatting.Indented);
-                    Task asyncTask = WriteFileAsync(Constants.serverListPath, listOutput);
+                    string listOutput = JsonConvert.SerializeObject(concurrentServerDict, Formatting.Indented);
+                    Task asyncTask = WriteFileAsync(Constants.concurrentDictPath, listOutput);
                     Console.WriteLine("Writing to Config");
                 }
                 catch (Exception ex)
@@ -218,7 +225,7 @@ namespace MCPing
             if (!client.Connected)
             {
                 //Test for if in scannedList or serverList
-                if (!scannedList.Contains(ipaddr.ToString()) && initServerList.FindIndex(x => x.ip == ip.ToString()) == -1)
+                if (!scannedList.Contains(ipaddr.ToString()) && !initServerDict.ContainsKey(ipaddr.ToString()))
                     scannedList.Add(ipaddr.ToString());
                 client.Close();
                 return;
@@ -278,14 +285,7 @@ namespace MCPing
                     playersOnline = users
                 };
 
-                int index = initServerList.FindIndex(f => f.ip == ipaddr.ToString());
-                if (index < 0)
-                    currentServerList.Add(info);
-                else
-                {
-                    currentServerList[index] = info;
-                    //Console.WriteLine("Known Server");
-                }
+                concurrentServerDict.AddOrUpdate(ipaddr.ToString(), info, (key, oldValue) => oldValue = info);
 
                 currentCount++;
 
