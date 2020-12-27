@@ -6,6 +6,5 @@
         public const string namesPath = "config/names.json";
         public const string scannedPath = "config/scanned.json";
         public const string serverListPath = "config/serverList.json";
-        public const string concurrentDictPath = "config/concurrentDict.json";
     }
 }
