@@ -66,7 +66,7 @@ namespace MCPing
 
             //Send a "Handshake" packet
             packet.WriteVarInt(754);
-            packet.WriteString("localhost");
+            packet.WriteString(packet.ip);
             packet.WriteShort(25565);
             packet.WriteVarInt(1);
             packet.Flush(0);
@@ -74,7 +74,7 @@ namespace MCPing
             //Send a "Status Request" packet
             packet.Flush(0);
 
-
+            #region Read Data
             byte[] buffer = new byte[short.MaxValue];
             packet.stream.Read(buffer, 0, buffer.Length);
 
@@ -84,12 +84,12 @@ namespace MCPing
             ServerPing.ThrowError(ip, $"Received packet 0x{packetType:X2} with a length of {length}");
 
             var jsonLength = packet.ReadVarInt(buffer);
+            #endregion
 
             string json = "";
             try
             {
                 json = packet.ReadString(buffer, jsonLength);
-
                 ServerPing.ThrowError(ip, json.Length.ToString());
 
                 if (json != null)
