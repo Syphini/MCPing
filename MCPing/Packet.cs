@@ -13,11 +13,9 @@ namespace MCPing
     public class Packet
     {
         public NetworkStream stream;
-        public List<byte> buffer;
+        public List<byte> bufferList;
         public int offset;
         public string ip;
-
-        static Dictionary<string, string> testList = new Dictionary<string, string>();
 
         PingPayload ErrorPayload()
         {
@@ -56,7 +54,7 @@ namespace MCPing
         public Packet(NetworkStream _stream, List<byte> _buffer, string _ip)
         {
             stream = _stream;
-            buffer = _buffer;
+            bufferList = _buffer;
             ip = _ip;
         }
 
@@ -76,7 +74,7 @@ namespace MCPing
 
             #region Read Data
             byte[] buffer = new byte[short.MaxValue];
-            packet.stream.Read(buffer, 0, buffer.Length);
+            stream.Read(buffer, 0, buffer.Length);
 
             var length = packet.ReadVarInt(buffer);
             var packetType = packet.ReadVarInt(buffer);
@@ -139,6 +137,13 @@ namespace MCPing
             return data;
         }
 
+        public int ReadInt(byte[] buffer)
+        {
+            int value = BitConverter.ToInt32(buffer, offset);
+            offset += 4;
+            return value;
+        }
+
         public int ReadVarInt(byte[] buffer)
         {
             var value = 0;
@@ -167,22 +172,22 @@ namespace MCPing
         {
             while ((value & 128) != 0)
             {
-                buffer.Add((byte)(value & 127 | 128));
+                bufferList.Add((byte)(value & 127 | 128));
                 value = (int)((uint)value) >> 7;
             }
-            buffer.Add((byte)value);
+            bufferList.Add((byte)value);
         }
 
         public void WriteShort(short value)
         {
-            buffer.AddRange(BitConverter.GetBytes(value));
+            bufferList.AddRange(BitConverter.GetBytes(value));
         }
 
         public void WriteString(string data)
         {
             var buffer = Encoding.UTF8.GetBytes(data);
             WriteVarInt(buffer.Length);
-            this.buffer.AddRange(buffer);
+            this.bufferList.AddRange(buffer);
         }
 
         public void Write(byte b)
@@ -193,22 +198,22 @@ namespace MCPing
 
         public void Flush(int id = -1)
         {
-            var buffer = this.buffer.ToArray();
-            this.buffer.Clear();
+            var buffer = this.bufferList.ToArray();
+            this.bufferList.Clear();
 
             var add = 0;
             var packetData = new[] { (byte)0x00 };
             if (id >= 0)
             {
                 WriteVarInt(id);
-                packetData = this.buffer.ToArray();
+                packetData = this.bufferList.ToArray();
                 add = packetData.Length;
-                this.buffer.Clear();
+                this.bufferList.Clear();
             }
 
             WriteVarInt(buffer.Length + add);
-            var bufferLength = this.buffer.ToArray();
-            this.buffer.Clear();
+            var bufferLength = this.bufferList.ToArray();
+            this.bufferList.Clear();
 
             stream.Write(bufferLength, 0, bufferLength.Length);
             stream.Write(packetData, 0, packetData.Length);

@@ -19,6 +19,7 @@ namespace MCPing
         static ConcurrentDictionary<string, ServerListing> concurrentServerDict;
 
         const int sleepTime = 150;
+        const int port = 2222;
 
         static int currentCount = 0;
 
@@ -26,9 +27,14 @@ namespace MCPing
         {
             Console.Title = "Minecraft Server Ping";
 
-            //Annoying me
-            args = null;
+            //ScanServers();
+            Host(port);
 
+            Console.ReadKey();
+        }
+
+        static void ScanServers()
+        {
             #region List Initilization
             //Deserialize all files
             List<string> ipList = JsonConvert.DeserializeObject<List<string>>(File.ReadAllText(Constants.ipListPath));
@@ -82,7 +88,28 @@ namespace MCPing
 
             Console.ResetColor();
             Console.WriteLine("End of list");
-            Console.ReadKey();
+        }
+
+        static void Host(int port)
+        {
+            TcpListener listener = new TcpListener(IPAddress.Any, port);
+            listener.Start();
+
+            TcpClient client = listener.AcceptTcpClient();
+            Console.WriteLine($"{client.Client.RemoteEndPoint}");
+
+            NetworkStream stream = client.GetStream();
+            Console.WriteLine($"{client.Connected}");
+
+            List<byte> bufferList = new List<byte>();
+            Packet packet = new Packet(stream, bufferList, client.Client.RemoteEndPoint.ToString());
+
+            byte[] buffer = new byte[short.MaxValue];
+            packet.stream.Read(buffer, 0, buffer.Length);
+            int value = packet.ReadInt(buffer);
+            
+
+            Console.WriteLine($"Recieved: {value}");
         }
 
         private void Ping(object ip)
