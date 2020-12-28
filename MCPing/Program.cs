@@ -26,9 +26,13 @@ namespace MCPing
         {
             Console.Title = "Minecraft Server Ping";
 
-            //Annoying me
-            args = null;
+            ScanServers();
 
+            Console.ReadKey();
+        }
+
+        static void ScanServers()
+        {
             #region List Initilization
             //Deserialize all files
             List<string> ipList = JsonConvert.DeserializeObject<List<string>>(File.ReadAllText(Constants.ipListPath));
@@ -82,7 +86,6 @@ namespace MCPing
 
             Console.ResetColor();
             Console.WriteLine("End of list");
-            Console.ReadKey();
         }
 
         private void Ping(object ip)

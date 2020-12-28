@@ -17,8 +17,6 @@ namespace MCPing
         public int offset;
         public string ip;
 
-        static Dictionary<string, string> testList = new Dictionary<string, string>();
-
         PingPayload ErrorPayload()
         {
             //CONVERT TO DESCRIPTION/CHAT FORMAT??
