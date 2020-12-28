@@ -19,7 +19,7 @@ namespace MCPing
         {
             client = _client;
 
-            packet = new Packet(_client.GetStream());
+            packet = new Packet(_client.GetStream(), (client.Client.RemoteEndPoint as IPEndPoint).Address);
 
             buffer = new byte[short.MaxValue];
             packet.stream.BeginRead(buffer, 0, buffer.Length, StreamCallback, null);
@@ -38,6 +38,9 @@ namespace MCPing
                 int value = packet.ReadInt(buffer);
 
                 Console.WriteLine(value);
+
+                packet.Write(value);
+                packet.Flush();
 
                 packet.stream.BeginRead(buffer, 0, buffer.Length, StreamCallback, null);
             }
