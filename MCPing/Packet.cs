@@ -17,108 +17,16 @@ namespace MCPing
         public int offset;
         public string ip;
 
-        PingPayload ErrorPayload()
-        {
-            //CONVERT TO DESCRIPTION/CHAT FORMAT??
-            string desc = "{\"text\": \"ERROR\"}";
-
-            return new PingPayload
-            {
-                Players = new PingPayload.PlayersPayload()
-                {
-                    Online = 0,
-                    Max = 0,
-                    Sample = new List<PingPayload.Player>()
-                    {
-                        new PingPayload.Player()
-                        {
-                            Id = "ERROR",
-                            Name = "ERROR"
-                        }
-                    }
-                },
-
-                Version = new PingPayload.VersionPayload()
-                {
-                    Name = "ERROR",
-                    Protocol = 0
-                },
-
-                Icon = "ERROR",
-
-                Description = JObject.Parse(desc)
-
-            };
-        }
-
-        public Packet(NetworkStream _stream, List<byte> _buffer, string _ip)
+        public Packet(NetworkStream _stream)
         {
             stream = _stream;
-            bufferList = _buffer;
-            ip = _ip;
         }
 
-        public PingPayload PingStatus(Packet packet)
+        public Packet(NetworkStream _stream, string _ip)
         {
-            //Console.WriteLine("Sending status request");
-
-            //Send a "Handshake" packet
-            packet.WriteVarInt(754);
-            packet.WriteString(packet.ip);
-            packet.WriteShort(25565);
-            packet.WriteVarInt(1);
-            packet.Flush(0);
-
-            //Send a "Status Request" packet
-            packet.Flush(0);
-
-            #region Read Data
-            byte[] buffer = new byte[short.MaxValue];
-            stream.Read(buffer, 0, buffer.Length);
-
-            var length = packet.ReadVarInt(buffer);
-            var packetType = packet.ReadVarInt(buffer);
-
-            ServerPing.ThrowError(ip, $"Received packet 0x{packetType:X2} with a length of {length}");
-
-            var jsonLength = packet.ReadVarInt(buffer);
-            #endregion
-
-            string json = "";
-            try
-            {
-                json = packet.ReadString(buffer, jsonLength);
-                ServerPing.ThrowError(ip, json.Length.ToString());
-
-                if (json != null)
-                {
-                    return JsonConvert.DeserializeObject<PingPayload>(json);
-                }
-
-                ServerPing.ThrowError(packet.ip, "Null Object");
-                return ErrorPayload();
-            }
-            catch (Exception ex)
-            {
-                if (ex is JsonSerializationException)
-                {
-                    ServerPing.ThrowError(packet.ip, "Serialization Error", ex);
-                    var old = JsonConvert.DeserializeObject<PingPayload.PingPayloadOld>(json);
-                    return new PingPayload()
-                    {
-                        Players = old.Players,
-                        Version = old.Version,
-                        Icon = old.Icon,
-                        //Description = JObject.Parse((string)old.Description)
-                    };
-                }
-                else
-                {
-                    ServerPing.ThrowError(packet.ip, "Returning Error Payload", ex);
-                }
-
-                return ErrorPayload();
-            }
+            stream = _stream;
+            bufferList = new List<byte>();
+            ip = _ip;
         }
 
         #region Read Methods
