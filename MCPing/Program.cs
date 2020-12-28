@@ -7,9 +7,11 @@ using System.Net.Sockets;
 using System.Threading;
 using System.Threading.Tasks;
 using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 
 namespace MCPing
 {
+    using static Functions;
     class ServerPing
     {
         static bool finishedChecking = false;
@@ -19,7 +21,6 @@ namespace MCPing
         static ConcurrentDictionary<string, ServerListing> concurrentServerDict;
 
         const int sleepTime = 150;
-        const int port = 2222;
 
         static int currentCount = 0;
 
@@ -27,8 +28,8 @@ namespace MCPing
         {
             Console.Title = "Minecraft Server Ping";
 
-            //ScanServers();
-            Host(port);
+            ScanServers();
+            //Server.Start();
 
             Console.ReadKey();
         }
@@ -90,28 +91,6 @@ namespace MCPing
             Console.WriteLine("End of list");
         }
 
-        static void Host(int port)
-        {
-            TcpListener listener = new TcpListener(IPAddress.Any, port);
-            listener.Start();
-
-            TcpClient client = listener.AcceptTcpClient();
-            Console.WriteLine($"{client.Client.RemoteEndPoint}");
-
-            NetworkStream stream = client.GetStream();
-            Console.WriteLine($"{client.Connected}");
-
-            List<byte> bufferList = new List<byte>();
-            Packet packet = new Packet(stream, bufferList, client.Client.RemoteEndPoint.ToString());
-
-            byte[] buffer = new byte[short.MaxValue];
-            packet.stream.Read(buffer, 0, buffer.Length);
-            int value = packet.ReadInt(buffer);
-            
-
-            Console.WriteLine($"Recieved: {value}");
-        }
-
         private void Ping(object ip)
         {
             #region TCP Connection
@@ -143,14 +122,14 @@ namespace MCPing
 
             try
             {
-                Packet packet = new Packet(client.GetStream(), new List<byte>(), ipaddr.ToString());
+                Packet packet = new Packet(client.GetStream(), ipaddr.ToString());
 
                 Console.ForegroundColor = ConsoleColor.Green;
                 Console.WriteLine($"{currentCount} -- Found Server {ip}");
                 Console.ResetColor();
 
                 //Grab Server Response
-                PingPayload ping = packet.PingStatus(packet);
+                PingPayload ping = PingStatus(packet);
                 client.Close();
 
                 //Initialize a list to hold all users found
@@ -344,26 +323,73 @@ namespace MCPing
             _ipList.AddRange(CalculateRange("51.81.0.0", "51.81.255.255"));
         }
 
+        public PingPayload PingStatus(Packet packet)
+        {
+            //Send a "Handshake" packet
+            packet.WriteVarInt(754);
+            packet.WriteString(packet.ip);
+            packet.WriteShort(25565);
+            packet.WriteVarInt(1);
+            packet.Flush(0);
+
+            //Send a "Status Request" packet
+            packet.Flush(0);
+
+            #region Read Data
+            byte[] buffer = new byte[short.MaxValue];
+            packet.stream.Read(buffer, 0, buffer.Length);
+
+            var length = packet.ReadVarInt(buffer);
+            var packetType = packet.ReadVarInt(buffer);
+
+            ThrowError(packet.ip, $"Received packet 0x{packetType:X2} with a length of {length}");
+
+            var jsonLength = packet.ReadVarInt(buffer);
+            #endregion
+
+            string json = "";
+            try
+            {
+                json = packet.ReadString(buffer, jsonLength);
+                ThrowError(packet.ip, json.Length.ToString());
+
+                if (json != null)
+                {
+                    return JsonConvert.DeserializeObject<PingPayload>(json);
+                }
+
+                ThrowError(packet.ip, "Null Object");
+                return ErrorPayload();
+            }
+            catch (Exception ex)
+            {
+                if (ex is JsonSerializationException)
+                {
+                    ThrowError(packet.ip, "Serialization Error", ex);
+                    var old = JsonConvert.DeserializeObject<PingPayload.PingPayloadOld>(json);
+                    return new PingPayload()
+                    {
+                        Players = old.Players,
+                        Version = old.Version,
+                        Icon = old.Icon,
+                        //Description = JObject.Parse((string)old.Description)
+                    };
+                }
+                else
+                {
+                    ThrowError(packet.ip, "Returning Error Payload", ex);
+                }
+
+                return ErrorPayload();
+            }
+        }
+
         static async Task WriteFileAsync(string path, string content)
         {
             using (StreamWriter outputFile = new StreamWriter(path))
             {
                 await outputFile.WriteAsync(content);
             }
-        }
-
-        public static void ThrowError(string ip, string message)
-        {
-            Console.ForegroundColor = ConsoleColor.Red;
-            Console.WriteLine($"{ip} ---- {message}");
-            Console.ResetColor();
-        }
-
-        public static void ThrowError(string ip, string message, Exception ex)
-        {
-            Console.ForegroundColor = ConsoleColor.Red;
-            Console.WriteLine($"{ip} ---- {message}: \n{ex}");
-            Console.ResetColor();
         }
 
         struct ServerListing
@@ -375,5 +401,41 @@ namespace MCPing
             public int maxPlayers;
             public List<string> playersOnline;
         }
+
+        PingPayload ErrorPayload()
+        {
+            //CONVERT TO DESCRIPTION/CHAT FORMAT??
+            string desc = "{\"text\": \"ERROR\"}";
+
+            return new PingPayload
+            {
+                Players = new PingPayload.PlayersPayload()
+                {
+                    Online = 0,
+                    Max = 0,
+                    Sample = new List<PingPayload.Player>()
+                    {
+                        new PingPayload.Player()
+                        {
+                            Id = "ERROR",
+                            Name = "ERROR"
+                        }
+                    }
+                },
+
+                Version = new PingPayload.VersionPayload()
+                {
+                    Name = "ERROR",
+                    Protocol = 0
+                },
+
+                Icon = "ERROR",
+
+                Description = JObject.Parse(desc)
+
+            };
+        }
     }
+
+
 }
