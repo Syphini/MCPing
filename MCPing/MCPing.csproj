@@ -46,7 +46,10 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Client.cs" />
     <Compile Include="Constants.cs" />
+    <Compile Include="Functions.cs" />
+    <Compile Include="Server.cs" />
     <Compile Include="Packet.cs" />
     <Compile Include="PingPayload.cs" />
     <Compile Include="Program.cs" />
