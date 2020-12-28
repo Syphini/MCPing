@@ -28,8 +28,8 @@ namespace MCPing
         {
             Console.Title = "Minecraft Server Ping";
 
-            ScanServers();
-            //Server.Start();
+            //ScanServers();
+            Server.Start();
 
             Console.ReadKey();
         }
@@ -98,10 +98,10 @@ namespace MCPing
 
             if (!IPAddress.TryParse(ip.ToString(), out IPAddress ipaddr))
             {
-                ThrowError(ipaddr.ToString(), $"INVALID IP");
+                ThrowError(ipaddr, $"INVALID IP");
             }
 
-            var task = client.ConnectAsync(ipaddr, 25565);
+            Task task = client.ConnectAsync(ipaddr, 25565);
 
             int attempts = 0;
             while (!task.IsCompleted && attempts < 3)
@@ -122,7 +122,7 @@ namespace MCPing
 
             try
             {
-                Packet packet = new Packet(client.GetStream(), ipaddr.ToString());
+                Packet packet = new Packet(client.GetStream(), ipaddr);
 
                 Console.ForegroundColor = ConsoleColor.Green;
                 Console.WriteLine($"{currentCount} -- Found Server {ip}");
@@ -182,7 +182,7 @@ namespace MCPing
             {
                 if (ex is NullReferenceException)
                 {
-                    ThrowError(ipaddr.ToString(),  "Object was Null", ex);
+                    ThrowError(ipaddr,  "Object was Null", ex);
                 }
                 else if (ex is IOException)
                 {
@@ -190,11 +190,11 @@ namespace MCPing
                     * If an IOException is thrown then the server didn't 
                     * send us a VarInt or sent us an invalid one.
                     */
-                    ThrowError(ipaddr.ToString(), "Stream forcibly closed", ex);
+                    ThrowError(ipaddr, "Stream forcibly closed", ex);
                 }
                 else
                 {
-                    ThrowError(ipaddr.ToString(), "New Error", ex);
+                    ThrowError(ipaddr, "New Error", ex);
                 }
             }
 
@@ -247,7 +247,6 @@ namespace MCPing
         {
             List<string> list = new List<string>();
 
-            //Console.WriteLine($"StartIP: {startIP}, Index: {startIP.LastIndexOf('.')}");
             int[] start = ConvertIP(startIP);
             int[] end = ConvertIP(endIP);
 
@@ -297,10 +296,8 @@ namespace MCPing
             //CURRENT ~
 
             //HOSTINGER
-            _ipList.AddRange(CalculateRange("31.170.160.0", "31.170.163.255"));
-            _ipList.AddRange(CalculateRange("31.170.166.0", "31.170.167.255"));
-            _ipList.AddRange(CalculateRange("31.220.104.0", "31.220.105.255"));
-            _ipList.AddRange(CalculateRange("31.220.107.0", "31.220.109.255"));
+            _ipList.AddRange(CalculateRange("31.170.160.0", "31.170.167.255"));
+            _ipList.AddRange(CalculateRange("31.220.104.0", "31.220.109.255"));
             _ipList.AddRange(CalculateRange("31.220.18.0", "31.220.18.255"));
             _ipList.AddRange(CalculateRange("31.220.22.0", "31.220.22.255"));
             _ipList.AddRange(CalculateRange("31.220.48.0", "31.220.63.255"));
@@ -327,13 +324,13 @@ namespace MCPing
         {
             //Send a "Handshake" packet
             packet.WriteVarInt(754);
-            packet.WriteString(packet.ip);
-            packet.WriteShort(25565);
+            packet.Write(packet.ip.ToString());
+            packet.Write(25565);
             packet.WriteVarInt(1);
-            packet.Flush(0);
+            packet.MCFlush(0);
 
             //Send a "Status Request" packet
-            packet.Flush(0);
+            packet.MCFlush(0);
 
             #region Read Data
             byte[] buffer = new byte[short.MaxValue];
