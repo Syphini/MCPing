@@ -11,6 +11,11 @@ using System.Net;
 
 namespace MCPing
 {
+    public enum TCPPackets
+    {
+        welcome = 1
+    }
+
     public class Packet
     {
         public NetworkStream stream;
@@ -141,6 +146,12 @@ namespace MCPing
             bufferList.Clear();
 
             stream.Write(buffer, 0, buffer.Length);
+        }
+
+        public void Reset()
+        {
+            offset = 0;
+            bufferList.Clear();
         }
     }
 }
