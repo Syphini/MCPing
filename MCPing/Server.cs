@@ -12,10 +12,15 @@ namespace MCPing
     {
         static TcpListener listener;
 
+        public delegate void PacketHandler(int fromClient, Packet packet);
+        public static Dictionary<int, PacketHandler> packetHandlers;
+
         const int port = 2222;
 
         public static void Start()
         {
+            InitializeData();
+
             listener = new TcpListener(IPAddress.Any, port);
             listener.Start();
 
@@ -31,6 +36,12 @@ namespace MCPing
 
         }
 
-
+        static void InitializeData()
+        {
+            packetHandlers = new Dictionary<int, PacketHandler>()
+            {
+                //{(int)TCPPackets.welcome, }
+            };
+        }
     }
 }
