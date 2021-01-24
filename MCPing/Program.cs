@@ -28,7 +28,12 @@ namespace MCPing
         {
             Console.Title = "Minecraft Server Ping";
 
-            ScanServers();
+            //ScanServers();
+
+            var x = CalculateRange("0.0.0.0", "0.128.255.255");
+
+            Console.WriteLine("COMPLETE");
+
             //Server.Start();
 
             Console.ReadKey();
@@ -241,55 +246,6 @@ namespace MCPing
 
                 Thread.Sleep(sleepTime * modif);
             }
-        }
-
-        static List<string> CalculateRange(string startIP, string endIP)
-        {
-            List<string> list = new List<string>();
-
-            //Console.WriteLine($"StartIP: {startIP}, Index: {startIP.LastIndexOf('.')}");
-            int[] start = ConvertIP(startIP);
-            int[] end = ConvertIP(endIP);
-
-            start[3] -= 1;
-
-            do
-            {
-                start[3]++;
-                if (start[3] == 256)
-                {
-                    start[2]++;
-                    start[3] = 0;
-                }
-                else if (start[2] != 256)
-                {
-                    list.Add($"{start[0]}.{start[1]}.{start[2]}.{start[3]}");
-                }
-
-                if (start[2] == end[2] && start[3] == end[3])
-                    return list;
-
-            }
-            while (start[2] < 256 && start[2] < (end[2] + 1));
-
-            return list;
-        }
-
-        static int[] ConvertIP(string ip)
-        {
-            int[] array = new int[4];
-            for (int i = 0; i < 3; i++)
-            {
-                int index = ip.LastIndexOf('.') + 1;
-                array[i] = int.Parse(ip.Substring(index, ip.Length - index));
-                ip = ip.Remove(index - 1, ip.Length - (index - 1));
-            }
-
-            array[3] = int.Parse(ip);
-            Array.Reverse(array);
-
-            return array;
-
         }
 
         static void AddRange(List<string> _ipList)
