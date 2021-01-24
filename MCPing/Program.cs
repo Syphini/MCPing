@@ -30,7 +30,7 @@ namespace MCPing
 
             //ScanServers();
 
-            var x = CalculateRange("0.0.0.0", "0.128.255.255");
+            CalculateRange("0.0.0.0", "0.255.255.255");
 
             Console.WriteLine("COMPLETE");
 

@@ -47,7 +47,7 @@ namespace MCPing
                     start[2] = 0;
                 }
 
-                if (start[1] != 256 && start[2] != 256)
+                if (start[0] != 256 && start[1] != 256 && start[2] != 256)
                 {
                     list.Add($"{start[0]}.{start[1]}.{start[2]}.{start[3]}");
                 }
