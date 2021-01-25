@@ -23,7 +23,7 @@ namespace MCPing
             Console.ResetColor();
         }
 
-        public static int CountIPs(string startIP, string endIP)
+        public static int CountRange(string startIP, string endIP)
         {
             int[] start = ConvertIP(startIP);
             int[] end = ConvertIP(endIP);
