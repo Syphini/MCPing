@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -20,6 +21,26 @@ namespace MCPing
             Console.ForegroundColor = ConsoleColor.Red;
             Console.WriteLine($"{ip} ---- {message}: \n{ex}");
             Console.ResetColor();
+        }
+
+        public static int CountIPs(string startIP, string endIP)
+        {
+            int[] start = ConvertIP(startIP);
+            int[] end = ConvertIP(endIP);
+
+            int[] result = new int[4]
+            {
+                end[0] - start[0],
+                end[1] - start[1],
+                end[2] - start[2],
+                end[3] - start[3]
+            };
+
+            Console.WriteLine($"{result[0]}.{result[1]}.{result[2]}.{result[3]}");
+
+            //multiply by 256
+
+            return 0;
         }
 
         public static List<string> CalculateRange(string startIP, string endIP)

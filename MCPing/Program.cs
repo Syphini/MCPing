@@ -30,7 +30,8 @@ namespace MCPing
 
             //ScanServers();
 
-            CalculateRange("0.0.0.0", "0.255.255.255");
+            CountIPs("1.1.1.1","1.1.255.10");
+            //CalculateRange("0.0.0.0", "0.255.255.255");
 
             Console.WriteLine("COMPLETE");
 
@@ -140,8 +141,12 @@ namespace MCPing
                 //Initialize a list to hold all users found
                 List<string> users = new List<string>();
 
+                //Grab Time
+                string currentTime = $"{DateTime.Now.Year:D4}/{DateTime.Now.Month:D2}/{DateTime.Now.Day:D2}, {DateTime.Now.Hour:D2}:{DateTime.Now.Minute:D2}:{DateTime.Now.Second:D2}";
+
+
                 Console.ForegroundColor = ConsoleColor.Yellow;
-                Console.WriteLine($"-------------\n{ip}\nVersion: {ping.Version.Name}\nPlayers Online: {ping.Players.Online}/{ping.Players.Max}\n-------------");
+                Console.WriteLine($"-------------\n{ip}\nTime: {currentTime}\nVersion: {ping.Version.Name}\nPlayers Online: {ping.Players.Online}/{ping.Players.Max}\n-------------");
                 //Console.WriteLine(ping.Description);
 
                 //Grab list of predetermined names
@@ -168,7 +173,7 @@ namespace MCPing
                 //Add information to ServerListing object
                 ServerListing info = new ServerListing
                 {
-                    time = $"{DateTime.Now.Year:D4}/{DateTime.Now.Month:D2}/{DateTime.Now.Day:D2}, {DateTime.Now.Hour:D2}:{DateTime.Now.Minute:D2}:{DateTime.Now.Second:D2}",
+                    time = currentTime,
                     ip = ipaddr.ToString(),
                     version = ping.Version.Name,
                     currentPlayers = ping.Players.Online,
