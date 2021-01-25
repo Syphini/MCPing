@@ -38,9 +38,7 @@ namespace MCPing
 
             Console.WriteLine($"{result[0]}.{result[1]}.{result[2]}.{result[3]}");
 
-            //multiply by 256
-
-            return 0;
+            return result[0] * (int) Math.Pow(256,3) + result[1] * (int)Math.Pow(256, 2) + result[2] * 256 + result[3] + 1;
         }
 
         public static List<string> CalculateRange(string startIP, string endIP)
