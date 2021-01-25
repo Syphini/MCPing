@@ -30,7 +30,7 @@ namespace MCPing
 
             //ScanServers();
 
-            Console.WriteLine(CountIPs("1.0.0.0","1.255.255.255"));
+            Console.WriteLine(CountRange("1.0.0.0","1.255.255.255"));
             //CalculateRange("0.0.0.0", "0.255.255.255");
 
             Console.WriteLine("COMPLETE");
