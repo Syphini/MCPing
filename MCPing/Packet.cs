@@ -7,22 +7,29 @@ using System.Net.Sockets;
 using System.IO;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
+using System.Net;
 
 namespace MCPing
 {
+    public enum TCPPackets
+    {
+        welcome = 1
+    }
+
     public class Packet
     {
         public NetworkStream stream;
         public List<byte> bufferList;
         public int offset;
-        public string ip;
+        public IPAddress ip;
 
         public Packet(NetworkStream _stream)
         {
             stream = _stream;
+            bufferList = new List<byte>();
         }
 
-        public Packet(NetworkStream _stream, string _ip)
+        public Packet(NetworkStream _stream, IPAddress _ip)
         {
             stream = _stream;
             bufferList = new List<byte>();
@@ -86,12 +93,17 @@ namespace MCPing
             bufferList.Add((byte)value);
         }
 
-        public void WriteShort(short value)
+        public void Write(short value)
         {
             bufferList.AddRange(BitConverter.GetBytes(value));
         }
 
-        public void WriteString(string data)
+        public void Write(int value)
+        {
+            bufferList.AddRange(BitConverter.GetBytes(value));
+        }
+
+        public void Write(string data)
         {
             var buffer = Encoding.UTF8.GetBytes(data);
             WriteVarInt(buffer.Length);
@@ -104,28 +116,42 @@ namespace MCPing
         }
         #endregion
 
-        public void Flush(int id = -1)
+        public void MCFlush(int id = -1)
         {
-            var buffer = this.bufferList.ToArray();
-            this.bufferList.Clear();
+            var buffer = bufferList.ToArray();
+            bufferList.Clear();
 
             var add = 0;
             var packetData = new[] { (byte)0x00 };
             if (id >= 0)
             {
                 WriteVarInt(id);
-                packetData = this.bufferList.ToArray();
+                packetData = bufferList.ToArray();
                 add = packetData.Length;
-                this.bufferList.Clear();
+                bufferList.Clear();
             }
 
             WriteVarInt(buffer.Length + add);
-            var bufferLength = this.bufferList.ToArray();
-            this.bufferList.Clear();
+            var bufferLength = bufferList.ToArray();
+            bufferList.Clear();
 
             stream.Write(bufferLength, 0, bufferLength.Length);
             stream.Write(packetData, 0, packetData.Length);
             stream.Write(buffer, 0, buffer.Length);
+        }
+
+        public void Flush()
+        {
+            byte[] buffer = bufferList.ToArray();
+            bufferList.Clear();
+
+            stream.Write(buffer, 0, buffer.Length);
+        }
+
+        public void Reset()
+        {
+            offset = 0;
+            bufferList.Clear();
         }
     }
 }
