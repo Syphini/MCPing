@@ -28,12 +28,10 @@ namespace MCPing
         {
             Console.Title = "Minecraft Server Ping";
 
-            //ScanServers();
+            ScanServers();
 
-            Console.WriteLine(CountRange("1.0.0.0","1.255.255.255"));
+            //CountRange("1.0.0.0","1.255.255.255");
             //CalculateRange("0.0.0.0", "0.255.255.255");
-
-            Console.WriteLine("COMPLETE");
 
             //Server.Start();
 
