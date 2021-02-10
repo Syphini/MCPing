@@ -14,13 +14,17 @@ namespace MCPing
     using static Functions;
     class ServerPing
     {
+        static bool emergencyStop = false;
+
         static bool finishedChecking = false;
         static List<string> scannedList;
 
+        static List<RangeStruct> rangeList;
         static Dictionary<string, ServerListing> initServerDict;
         static ConcurrentDictionary<string, ServerListing> concurrentServerDict;
 
         const int sleepTime = 150;
+        const int modif = 100;
 
         static int currentCount = 0;
 
@@ -40,59 +44,65 @@ namespace MCPing
 
         static void ScanServers()
         {
-            #region List Initilization
-            //Deserialize all files
-            List<string> ipList = JsonConvert.DeserializeObject<List<string>>(File.ReadAllText(Constants.ipListPath));
-            scannedList = JsonConvert.DeserializeObject<List<string>>(File.ReadAllText(Constants.scannedPath));
-            initServerDict = JsonConvert.DeserializeObject<Dictionary<string, ServerListing>>(File.ReadAllText(Constants.serverListPath));
-
-            //Convert List Types
-            concurrentServerDict = new ConcurrentDictionary<string, ServerListing>(initServerDict);
-            HashSet<string> hashScanList = new HashSet<string>(scannedList);
-            #endregion
-
-            //Add IP's
-            AddRange(ipList);
-
-            //Count number of servers to left scan
-            int count = 0;
-            foreach (var item in ipList)
+            while (!emergencyStop)
             {
-                if (!hashScanList.Contains(item))
-                    count++;
-            }
+                #region List Initilization
+                //Deserialize all files
+                rangeList = JsonConvert.DeserializeObject<List<RangeStruct>>(File.ReadAllText(Constants.ipListPath));
+                scannedList = JsonConvert.DeserializeObject<List<string>>(File.ReadAllText(Constants.scannedPath));
+                initServerDict = JsonConvert.DeserializeObject<Dictionary<string, ServerListing>>(File.ReadAllText(Constants.serverListPath));
 
-            //Display
-            Console.WriteLine($"IP's to Scan: {count}");
-            Console.WriteLine($"Servers already registered: {initServerDict.Count}");
+                //Convert List Types
+                concurrentServerDict = new ConcurrentDictionary<string, ServerListing>(initServerDict);
+                HashSet<string> hashScanList = new HashSet<string>(scannedList);
+                #endregion
 
-            #region Threading
-            Thread writeThread = new Thread(new ParameterizedThreadStart(WriteTimer));
-            writeThread.Start(ipList.Count);
+                //Add IP's
+                List<string> ipList = AddRange(rangeList);
 
-            foreach (string ip in ipList)
-            {
-                ServerPing instance = new ServerPing();
-
-                if (!hashScanList.Contains(ip.ToString()) || initServerDict.ContainsKey(ip.ToString()))
+                //Count number of servers to left scan
+                int count = 0;
+                foreach (var item in ipList)
                 {
-                    //ThrowError(ip, find.ip);
-                    string tmp = ip;
-                    Thread thread = new Thread(() => instance.Ping(tmp))
-                    {
-                        Name = ip
-                    };
-                    thread.Start();
-                    Thread.Sleep(sleepTime);
+                    if (!hashScanList.Contains(item))
+                        count++;
                 }
 
+                //Display
+                Console.WriteLine($"IP's to Scan: {count}");
+                Console.WriteLine($"Servers already registered: {initServerDict.Count}");
+
+                #region Threading
+                Thread writeThread = new Thread(new ParameterizedThreadStart(WriteTimer));
+                writeThread.Start(ipList.Count);
+
+                foreach (string ip in ipList)
+                {
+                    ServerPing instance = new ServerPing();
+
+                    if (!hashScanList.Contains(ip.ToString()) || initServerDict.ContainsKey(ip.ToString()))
+                    {
+                        //ThrowError(IPAddress.Parse(ip), "Found");
+                        string tmp = ip;
+                        Thread thread = new Thread(() => instance.Ping(tmp))
+                        {
+                            Name = ip
+                        };
+                        thread.Start();
+                        Thread.Sleep(sleepTime);
+                    }
+
+                }
+                #endregion
+
+                finishedChecking = true;
+
+                Console.ResetColor();
+                Console.WriteLine("End of list");
+
+                //20 sec sleep
+                Thread.Sleep(sleepTime * modif + 5); 
             }
-            #endregion
-
-            finishedChecking = true;
-
-            Console.ResetColor();
-            Console.WriteLine("End of list");
         }
 
         private void Ping(object ip)
@@ -160,9 +170,15 @@ namespace MCPing
                         //add to users list if corresponding names found
                         if (namesList.Contains(player.Name))
                         {
-                            List<string> nameList = JsonConvert.DeserializeObject<List<string>>(File.ReadAllText(Constants.ipListPath));
-                            nameList.Add(ip.ToString());
-                            string nameSave = JsonConvert.SerializeObject(nameList, Formatting.Indented);
+                            RangeStruct addName = new RangeStruct
+                            {
+                                info = $"CORRESPONDING NAME FOUND: {player.Name}",
+                                startip = ip.ToString(),
+                                endip = ip.ToString()
+                            };
+
+                            rangeList.Add(addName);
+                            string nameSave = JsonConvert.SerializeObject(rangeList, Formatting.Indented);
                             Task asyncIP = WriteFileAsync(Constants.ipListPath, nameSave);
                         }
                     }
@@ -210,8 +226,6 @@ namespace MCPing
 
         static void WriteTimer(object count)
         {
-            const int modif = 100;
-
             Thread.Sleep(sleepTime * modif);
 
             for (int i = 0; i < (int)count / modif; i++)
@@ -251,33 +265,16 @@ namespace MCPing
             }
         }
 
-        static void AddRange(List<string> _ipList)
+        static List<string> AddRange(List<RangeStruct> _rangeList)
         {
-            //CURRENT ~
+            List<string> _ipList = new List<string>();
 
-            //HOSTINGER
-            _ipList.AddRange(CalculateRange("31.170.160.0", "31.170.167.255"));
-            _ipList.AddRange(CalculateRange("31.220.104.0", "31.220.109.255"));
-            _ipList.AddRange(CalculateRange("31.220.18.0", "31.220.18.255"));
-            _ipList.AddRange(CalculateRange("31.220.22.0", "31.220.22.255"));
-            _ipList.AddRange(CalculateRange("31.220.48.0", "31.220.63.255"));
+            foreach (var item in _rangeList)
+            {
+                _ipList.AddRange(CalculateRange(item.startip, item.endip));
+            }
 
-            //MCPROHOSTING
-            _ipList.AddRange(CalculateRange("104.193.176.0", "104.193.183.255"));
-            _ipList.AddRange(CalculateRange("162.244.164.0", "162.244.167.255"));
-
-            //APEX HOSTING
-            _ipList.AddRange(CalculateRange("139.99.0.0", "139.99.127.255"));
-
-            //BISECT HOSTING
-            _ipList.AddRange(CalculateRange("158.62.200.0", "158.62.207.255"));
-
-            //OVH
-            _ipList.AddRange(CalculateRange("135.148.0.0", "135.148.128.255"));
-            _ipList.AddRange(CalculateRange("147.135.0.0", "147.135.255.255"));
-            _ipList.AddRange(CalculateRange("149.56.0.0", "149.56.255.255"));
-            _ipList.AddRange(CalculateRange("51.79.0.0", "51.79.255.255"));
-            _ipList.AddRange(CalculateRange("51.81.0.0", "51.81.255.255"));
+            return _ipList;
         }
 
         public PingPayload PingStatus(Packet packet)
@@ -357,6 +354,13 @@ namespace MCPing
             public int currentPlayers;
             public int maxPlayers;
             public List<string> playersOnline;
+        }
+
+        struct RangeStruct
+        {
+            public string info;
+            public string startip;
+            public string endip;
         }
 
         PingPayload ErrorPayload()
