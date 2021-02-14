@@ -15,14 +15,26 @@ namespace MCPing
         private Packet readPacket;
         private byte[] buffer;
 
-        public Client(TcpClient _client)
+        public Client(TcpClient _client, bool server)
         {
             client = _client;
+            Console.WriteLine($"Connected on: {client.Client.RemoteEndPoint}");
 
             readPacket = new Packet(_client.GetStream(), (client.Client.RemoteEndPoint as IPEndPoint).Address);
 
+            if (!server)
+            {
+                readPacket.Write(51);
+                readPacket.Flush();
+            }
+
             buffer = new byte[short.MaxValue];
             readPacket.stream.BeginRead(buffer, 0, buffer.Length, StreamCallback, null);
+        }
+
+        public static void Start()
+        {
+            new Client(new TcpClient("localhost", 57105), false);
         }
 
         void StreamCallback(IAsyncResult result)
