@@ -37,9 +37,38 @@ namespace MCPing
             //CountRange("1.0.0.0","1.255.255.255");
             //CalculateRange("0.0.0.0", "0.255.255.255");
 
-            //Server.Start();
+            //PacketTests();
 
             Console.ReadKey();
+        }
+
+        static void PacketTests()
+        {
+            Console.ForegroundColor = ConsoleColor.Yellow;
+            Console.WriteLine("1 for Server\n2 for Client\nAll else will quit.\n");
+            ConsoleKeyInfo key = Console.ReadKey();
+            Console.WriteLine($"\nKEY: {key.Key}");
+
+            if (key.Key == ConsoleKey.D1 || key.Key == ConsoleKey.NumPad1)
+            {
+                Console.ForegroundColor = ConsoleColor.Green;
+                Console.WriteLine("\nSERVER START");
+                Console.ResetColor();
+
+                Server.Start();
+            }
+            else if (key.Key == ConsoleKey.D2 || key.Key == ConsoleKey.NumPad2)
+            {
+                Console.ForegroundColor = ConsoleColor.Green;
+                Console.WriteLine("\nCLIENT START");
+                Console.ResetColor();
+
+                Client.Start();
+            }
+            else
+            {
+                Environment.Exit(0);
+            }
         }
 
         static void ScanServers()
@@ -281,8 +310,8 @@ namespace MCPing
         {
             //Send a "Handshake" packet
             packet.WriteVarInt(754);
-            packet.Write(packet.ip.ToString());
-            packet.Write(25565);
+            packet.Write("localhost");
+            packet.Write((short)25565);
             packet.WriteVarInt(1);
             packet.MCFlush(0);
 
