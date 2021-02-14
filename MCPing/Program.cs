@@ -27,6 +27,7 @@ namespace MCPing
         const int modif = 100;
 
         static int currentCount = 0;
+        static int loopCount = 0;
 
         private static void Main(string[] args)
         {
@@ -63,7 +64,7 @@ namespace MCPing
                 Console.WriteLine("\nCLIENT START");
                 Console.ResetColor();
 
-                Client.Start();
+                //Client.Start();
             }
             else
             {
@@ -130,7 +131,11 @@ namespace MCPing
                 Console.WriteLine("End of list");
 
                 //20 sec sleep
-                Thread.Sleep(sleepTime * modif + 5); 
+                Thread.Sleep(sleepTime * modif + 5);
+
+                //Update Debug Counts
+                currentCount = 0;
+                loopCount++;
             }
         }
 
@@ -168,7 +173,7 @@ namespace MCPing
                 Packet packet = new Packet(client.GetStream(), ipaddr);
 
                 Console.ForegroundColor = ConsoleColor.Green;
-                Console.WriteLine($"{currentCount} -- Found Server {ip}");
+                Console.WriteLine($"L{loopCount}:C{currentCount} -- Found Server {ip}");
                 Console.ResetColor();
 
                 //Grab Server Response
