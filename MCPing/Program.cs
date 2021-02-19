@@ -14,7 +14,7 @@ namespace MCPing
     using static Functions;
     class ServerPing
     {
-        static bool emergencyStop = false;
+        static bool finalStop = false;
 
         static bool finishedChecking = false;
         static List<string> scannedList;
@@ -74,8 +74,11 @@ namespace MCPing
 
         static void ScanServers()
         {
-            while (!emergencyStop)
+            while (!finalStop)
             {
+                //Loop start
+                finishedChecking = false;
+
                 #region List Initilization
                 //Deserialize all files
                 rangeList = JsonConvert.DeserializeObject<List<RangeStruct>>(File.ReadAllText(Constants.ipListPath));
@@ -131,7 +134,7 @@ namespace MCPing
                 Console.WriteLine("End of list");
 
                 //20 sec sleep
-                Thread.Sleep(sleepTime * modif + 5);
+                Thread.Sleep(sleepTime * modif + 5000);
 
                 //Update Debug Counts
                 currentCount = 0;
@@ -194,24 +197,44 @@ namespace MCPing
                 //Grab list of predetermined names
                 List<string> namesList = JsonConvert.DeserializeObject<List<string>>(File.ReadAllText(Constants.namesPath));
 
-                #region Find Names
+                #region Find Names                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      
                 //Scan usernames in server
                 if (ping.Players.Sample != null)
                     foreach (var player in ping.Players.Sample)
                     {
                         users.Add(player.Name);
 
-                        //add to users list if corresponding names found
+                        //add to users list if corresponding name is found
                         if (namesList.Contains(player.Name))
                         {
                             RangeStruct addName = new RangeStruct
                             {
-                                info = $"CORRESPONDING NAME FOUND: {player.Name}",
+                                info = $"{currentTime} @ {player.Name}:{player.Id}",
                                 startip = ip.ToString(),
                                 endip = ip.ToString()
                             };
 
-                            rangeList.Add(addName);
+                            var nameIndex = rangeList.FindIndex(e => e.info.Contains(player.Name));
+                            var ipIndex = rangeList.FindIndex(e => e.info.Contains(player.Name) && e.startip == ip.ToString());
+                            
+                            if (nameIndex >= 0)
+                            {
+                                //Intention is to modify a way for program to find when a users ip has "changed"
+                                if (ipIndex >= 0)
+                                {
+                                    rangeList[ipIndex] = addName;
+                                }
+                                else
+                                {
+                                    rangeList.Add(addName);
+                                }
+                            }
+                            else
+                            {
+                                rangeList.Add(addName);
+                            }
+                            
+
                             string nameSave = JsonConvert.SerializeObject(rangeList, Formatting.Indented);
                             Task asyncIP = WriteFileAsync(Constants.ipListPath, nameSave);
                         }
@@ -262,7 +285,7 @@ namespace MCPing
         {
             Thread.Sleep(sleepTime * modif);
 
-            for (int i = 0; i < (int)count / modif; i++)
+            while (!finishedChecking)
             {
                 try
                 {
@@ -288,15 +311,12 @@ namespace MCPing
                     continue;
                 }
 
-                if (finishedChecking)
-                {
-                    Console.WriteLine("FINISHED CHECKING");
-                    Console.WriteLine($"Server count returned for this scan: {currentCount}");
-                    return;
-                }
-
                 Thread.Sleep(sleepTime * modif);
             }
+
+            Console.WriteLine("FINISHED CHECKING");
+            Console.WriteLine($"Server count returned for this scan: {currentCount}");
+            return;
         }
 
         static List<string> AddRange(List<RangeStruct> _rangeList)
