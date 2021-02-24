@@ -11,6 +11,8 @@ using System.Net;
 
 namespace MCPing
 {
+    using static Functions;
+
     public enum TCPPackets
     {
         welcome = 1
@@ -37,6 +39,41 @@ namespace MCPing
         }
 
         #region Read Methods
+
+        public byte[] ReadStream()
+        {
+            //Initiliaze Buffers
+            byte[] buffer = new byte[short.MaxValue];
+            byte[] workingBuffer = new byte[short.MaxValue];
+
+            //Read and copy for Framing Information
+            int bytesRead = stream.Read(buffer, 0, buffer.Length);
+            Array.Copy(buffer, 0, workingBuffer, 0, bytesRead);
+
+            //Read Packet
+            var length = ReadVarInt(buffer);
+            var packetType = ReadVarInt(buffer);
+
+            //Display
+            ThrowError(ip, $"Received packet 0x{packetType:X2} with a length of {length}");
+
+            //Set new copy position
+            int totalBytesRead = bytesRead;
+
+            //Read until full packet delivered
+            while (totalBytesRead < length)
+            {
+                bytesRead = stream.Read(buffer, 0, buffer.Length);
+                if (bytesRead > 0)
+                {
+                    Array.Copy(buffer, 0, workingBuffer, totalBytesRead, bytesRead);
+                    totalBytesRead += bytesRead;
+                }
+            }
+
+            return workingBuffer;
+        }
+
         public byte ReadByte(byte[] buffer)
         {
             var b = buffer[offset];
