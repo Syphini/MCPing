@@ -125,31 +125,39 @@ namespace MCPing
                 Console.WriteLine($"Servers already registered: {initServerDict.Count}");
 
                 #region Threading
-                Thread writeThread = new Thread(new ParameterizedThreadStart(WriteTimer));
-                writeThread.Start(ipList.Count);
-
                 foreach (string ip in ipList)
                 {
                     ServerPing instance = new ServerPing();
 
                     if (!hashScanList.Contains(ip.ToString()) || initServerDict.ContainsKey(ip.ToString()))
                     {
-                        //ThrowError(IPAddress.Parse(ip), "Found");
-                        string tmp = ip;
-                        Thread thread = new Thread(() => instance.Ping(tmp))
+                        if (ip == Constants.saveKey)
                         {
-                            Name = ip
-                        };
-                        thread.Start();
+                            finishedChecking = false;
+                            Thread writeThread = new Thread(WriteFiles);
+                            writeThread.Start();
+                            hashScanList = new HashSet<string>(scannedBag);
+                        }
+                        else
+                        {
+                            string tmp = ip;
+                            Thread thread = new Thread(() => instance.Ping(tmp))
+                            {
+                                Name = ip
+                            };
+                            thread.Start();
+                        }
+
                         Thread.Sleep(sleepTime);
                     }
 
                 }
                 #endregion
 
-                finishedChecking = true;
-
                 Console.ResetColor();
+
+                Console.WriteLine("FINISHED CHECKING");
+                Console.WriteLine($"Server count returned for this scan: {currentCount}");
                 Console.WriteLine("End of list");
 
                 //20 sec sleep
@@ -301,28 +309,34 @@ namespace MCPing
 
         }
 
-        static void WriteTimer(object count)
+        static void WriteFiles()
         {
-            Thread.Sleep(sleepTime * modif);
-
             while (!finishedChecking)
             {
-                string currentTime = $"{DateTime.Now.Year:D4}/{DateTime.Now.Month:D2}/{DateTime.Now.Day:D2}, {DateTime.Now.Hour:D2}:{DateTime.Now.Minute:D2}:{DateTime.Now.Second:D2}";
-
+                //CURRENTLY THESE FUNCTIONS TAKE UP A TREMENOUDOUS AMOUNT OF CPU POWER PROPORTIONATE TO THE SIZE OF THEIR FILES
+                //Consider Appending?
                 try
                 {
                     //Write scanned ip's to file async
                     string scanOutput = JsonConvert.SerializeObject(scannedBag, Formatting.Indented);
                     Task asyncScanList = WriteFileAsync(Constants.scannedPath, scanOutput);
-                    Console.WriteLine($"{currentTime} ---- Updated Scan");
+
+                    //Output time directly
+                    Console.WriteLine($"{DateTime.Now.Year:D4}/{DateTime.Now.Month:D2}/{DateTime.Now.Day:D2}, {DateTime.Now.Hour:D2}:{DateTime.Now.Minute:D2}:{DateTime.Now.Second:D2} ---- Updated Scan");
 
                     //Write detected servers to file async
                     string listOutput = JsonConvert.SerializeObject(concurrentServerDict, Formatting.Indented);
                     Task asyncServer = WriteFileAsync(Constants.serverListPath, listOutput);
-                    Console.WriteLine($"{currentTime} ---- Writing to Config");
+
+                    //Output time directly
+                    Console.WriteLine($"{DateTime.Now.Year:D4}/{DateTime.Now.Month:D2}/{DateTime.Now.Day:D2}, {DateTime.Now.Hour:D2}:{DateTime.Now.Minute:D2}:{DateTime.Now.Second:D2} ---- Writing to Config");
+
+                    finishedChecking = true;
                 }
                 catch (Exception ex)
                 {
+                    string currentTime = $"{ DateTime.Now.Year:D4}/{ DateTime.Now.Month:D2}/{ DateTime.Now.Day:D2}, { DateTime.Now.Hour:D2}:{ DateTime.Now.Minute:D2}:{ DateTime.Now.Second:D2}";
+
                     if (ex is InvalidOperationException)
                         Console.WriteLine($"{currentTime} ---- Error: InvalidOperationException");
                     else if (ex is IOException)
@@ -333,13 +347,7 @@ namespace MCPing
                     //Move to start of next loop without waiting
                     continue;
                 }
-
-                Thread.Sleep(sleepTime * modif);
             }
-
-            Console.WriteLine("FINISHED CHECKING");
-            Console.WriteLine($"Server count returned for this scan: {currentCount}");
-            return;
         }
 
         static List<string> AddRange(List<RangeStruct> _rangeList)
@@ -349,6 +357,7 @@ namespace MCPing
             foreach (var item in _rangeList)
             {
                 _ipList.AddRange(CalculateRange(item.startip, item.endip));
+                _ipList.Add(Constants.saveKey);
             }
 
             return _ipList;

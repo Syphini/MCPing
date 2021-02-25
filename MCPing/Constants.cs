@@ -7,5 +7,7 @@
         public const string scannedPath = "config/scanned.json";
         public const string serverListPath = "config/serverList.json";
         public const string ASCIIPath = "config/ASCII.txt";
+
+        public const string saveKey = "SCANUPDATE";
     }
 }
