@@ -14,23 +14,28 @@ namespace MCPing
     using static Functions;
     class ServerPing
     {
-        static bool emergencyStop = false;
+        static bool finalStop = false;
 
         static bool finishedChecking = false;
-        static List<string> scannedList;
+        
+        static List<string> initScannedList;
+        static ConcurrentBag<string> scannedBag;
 
-        static List<RangeStruct> rangeList;
         static Dictionary<string, ServerListing> initServerDict;
         static ConcurrentDictionary<string, ServerListing> concurrentServerDict;
+
+        static List<RangeStruct> rangeList;
 
         const int sleepTime = 150;
         const int modif = 100;
 
         static int currentCount = 0;
+        static int loopCount = 0;
 
         private static void Main(string[] args)
         {
             Console.Title = "Minecraft Server Ping";
+            ASCIITitle();
 
             ScanServers();
 
@@ -40,6 +45,20 @@ namespace MCPing
             //PacketTests();
 
             Console.ReadKey();
+        }
+
+        static void ASCIITitle()
+        {
+            string[] data = File.ReadAllLines(Constants.ASCIIPath);
+            Console.WriteLine();
+
+            for (int i = 0; i < data.Length; i++)
+            {
+                Thread.Sleep(50);
+                Console.WriteLine(data[i]);
+            }
+
+            Console.WriteLine("\n\n");
         }
 
         static void PacketTests()
@@ -63,7 +82,7 @@ namespace MCPing
                 Console.WriteLine("\nCLIENT START");
                 Console.ResetColor();
 
-                Client.Start();
+                //Client.Start();
             }
             else
             {
@@ -73,17 +92,21 @@ namespace MCPing
 
         static void ScanServers()
         {
-            while (!emergencyStop)
+            while (!finalStop)
             {
+                //Loop start
+                finishedChecking = false;
+
                 #region List Initilization
                 //Deserialize all files
                 rangeList = JsonConvert.DeserializeObject<List<RangeStruct>>(File.ReadAllText(Constants.ipListPath));
-                scannedList = JsonConvert.DeserializeObject<List<string>>(File.ReadAllText(Constants.scannedPath));
+                initScannedList = JsonConvert.DeserializeObject<List<string>>(File.ReadAllText(Constants.scannedPath));
                 initServerDict = JsonConvert.DeserializeObject<Dictionary<string, ServerListing>>(File.ReadAllText(Constants.serverListPath));
 
                 //Convert List Types
                 concurrentServerDict = new ConcurrentDictionary<string, ServerListing>(initServerDict);
-                HashSet<string> hashScanList = new HashSet<string>(scannedList);
+                scannedBag = new ConcurrentBag<string>(initScannedList);
+                HashSet<string> hashScanList = new HashSet<string>(initScannedList);
                 #endregion
 
                 //Add IP's
@@ -102,35 +125,47 @@ namespace MCPing
                 Console.WriteLine($"Servers already registered: {initServerDict.Count}");
 
                 #region Threading
-                Thread writeThread = new Thread(new ParameterizedThreadStart(WriteTimer));
-                writeThread.Start(ipList.Count);
-
                 foreach (string ip in ipList)
                 {
                     ServerPing instance = new ServerPing();
 
                     if (!hashScanList.Contains(ip.ToString()) || initServerDict.ContainsKey(ip.ToString()))
                     {
-                        //ThrowError(IPAddress.Parse(ip), "Found");
-                        string tmp = ip;
-                        Thread thread = new Thread(() => instance.Ping(tmp))
+                        if (ip == Constants.saveKey)
                         {
-                            Name = ip
-                        };
-                        thread.Start();
+                            finishedChecking = false;
+                            Thread writeThread = new Thread(WriteFiles);
+                            writeThread.Start();
+                            hashScanList = new HashSet<string>(scannedBag);
+                        }
+                        else
+                        {
+                            string tmp = ip;
+                            Thread thread = new Thread(() => instance.Ping(tmp))
+                            {
+                                Name = ip
+                            };
+                            thread.Start();
+                        }
+
                         Thread.Sleep(sleepTime);
                     }
 
                 }
                 #endregion
 
-                finishedChecking = true;
-
                 Console.ResetColor();
+
+                Console.WriteLine("FINISHED CHECKING");
+                Console.WriteLine($"Server count returned for this scan: {currentCount}");
                 Console.WriteLine("End of list");
 
                 //20 sec sleep
-                Thread.Sleep(sleepTime * modif + 5); 
+                Thread.Sleep(sleepTime * modif + 5000);
+
+                //Update Debug Counts
+                currentCount = 0;
+                loopCount++;
             }
         }
 
@@ -144,6 +179,7 @@ namespace MCPing
                 ThrowError(ipaddr, $"INVALID IP");
             }
 
+            //Later add in 25575 because Shockbyte servers don't use default ports without extra payment
             Task task = client.ConnectAsync(ipaddr, 25565);
 
             int attempts = 0;
@@ -156,8 +192,8 @@ namespace MCPing
             if (!client.Connected)
             {
                 //Test for if in scannedList or serverList
-                if (!scannedList.Contains(ipaddr.ToString()) && !initServerDict.ContainsKey(ipaddr.ToString()))
-                    scannedList.Add(ipaddr.ToString());
+                if (!initScannedList.Contains(ipaddr.ToString()) && !initServerDict.ContainsKey(ipaddr.ToString()))
+                    scannedBag.Add(ipaddr.ToString());
                 client.Close();
                 return;
             }
@@ -168,7 +204,7 @@ namespace MCPing
                 Packet packet = new Packet(client.GetStream(), ipaddr);
 
                 Console.ForegroundColor = ConsoleColor.Green;
-                Console.WriteLine($"{currentCount} -- Found Server {ip}");
+                Console.WriteLine($"L{loopCount}:C{currentCount} -- Found Server {ip}");
                 Console.ResetColor();
 
                 //Grab Server Response
@@ -189,24 +225,44 @@ namespace MCPing
                 //Grab list of predetermined names
                 List<string> namesList = JsonConvert.DeserializeObject<List<string>>(File.ReadAllText(Constants.namesPath));
 
-                #region Find Names
+                #region Find Names                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      
                 //Scan usernames in server
                 if (ping.Players.Sample != null)
                     foreach (var player in ping.Players.Sample)
                     {
                         users.Add(player.Name);
 
-                        //add to users list if corresponding names found
+                        //add to users list if corresponding name is found
                         if (namesList.Contains(player.Name))
                         {
                             RangeStruct addName = new RangeStruct
                             {
-                                info = $"CORRESPONDING NAME FOUND: {player.Name}",
+                                info = $"{currentTime} @ {player.Name}:{player.Id}",
                                 startip = ip.ToString(),
                                 endip = ip.ToString()
                             };
 
-                            rangeList.Add(addName);
+                            var nameIndex = rangeList.FindIndex(e => e.info.Contains(player.Name));
+                            var ipIndex = rangeList.FindIndex(e => e.info.Contains(player.Name) && e.startip == ip.ToString());
+                            
+                            if (nameIndex >= 0)
+                            {
+                                //Intention is to modify a way for program to find when a users ip has "changed"
+                                if (ipIndex >= 0)
+                                {
+                                    rangeList[ipIndex] = addName;
+                                }
+                                else
+                                {
+                                    rangeList.Add(addName);
+                                }
+                            }
+                            else
+                            {
+                                rangeList.Add(addName);
+                            }
+                            
+
                             string nameSave = JsonConvert.SerializeObject(rangeList, Formatting.Indented);
                             Task asyncIP = WriteFileAsync(Constants.ipListPath, nameSave);
                         }
@@ -253,44 +309,44 @@ namespace MCPing
 
         }
 
-        static void WriteTimer(object count)
+        static void WriteFiles()
         {
-            Thread.Sleep(sleepTime * modif);
-
-            for (int i = 0; i < (int)count / modif; i++)
+            while (!finishedChecking)
             {
+                //CURRENTLY THESE FUNCTIONS TAKE UP A TREMENOUDOUS AMOUNT OF CPU POWER PROPORTIONATE TO THE SIZE OF THEIR FILES
+                //Consider Appending?
                 try
                 {
-                    //Write to file async
-                    string scanOutput = JsonConvert.SerializeObject(scannedList, Formatting.Indented);
+                    //Write scanned ip's to file async
+                    string scanOutput = JsonConvert.SerializeObject(scannedBag, Formatting.Indented);
                     Task asyncScanList = WriteFileAsync(Constants.scannedPath, scanOutput);
-                    Console.WriteLine("Updated Scan");
 
-                    //Write to file async
+                    //Output time directly
+                    Console.WriteLine($"{DateTime.Now.Year:D4}/{DateTime.Now.Month:D2}/{DateTime.Now.Day:D2}, {DateTime.Now.Hour:D2}:{DateTime.Now.Minute:D2}:{DateTime.Now.Second:D2} ---- Updated Scan");
+
+                    //Write detected servers to file async
                     string listOutput = JsonConvert.SerializeObject(concurrentServerDict, Formatting.Indented);
                     Task asyncServer = WriteFileAsync(Constants.serverListPath, listOutput);
-                    Console.WriteLine("Writing to Config");
+
+                    //Output time directly
+                    Console.WriteLine($"{DateTime.Now.Year:D4}/{DateTime.Now.Month:D2}/{DateTime.Now.Day:D2}, {DateTime.Now.Hour:D2}:{DateTime.Now.Minute:D2}:{DateTime.Now.Second:D2} ---- Writing to Config");
+
+                    finishedChecking = true;
                 }
                 catch (Exception ex)
                 {
-                    if (ex is InvalidOperationException)
-                        Console.WriteLine($"Error: InvalidOperationException");
-                    else if (ex is IOException)
-                        Console.WriteLine("Error: IO Exception");
-                    else
-                        Console.WriteLine($"Error Writing: \n{ex}");
+                    string currentTime = $"{ DateTime.Now.Year:D4}/{ DateTime.Now.Month:D2}/{ DateTime.Now.Day:D2}, { DateTime.Now.Hour:D2}:{ DateTime.Now.Minute:D2}:{ DateTime.Now.Second:D2}";
 
+                    if (ex is InvalidOperationException)
+                        Console.WriteLine($"{currentTime} ---- Error: InvalidOperationException");
+                    else if (ex is IOException)
+                        Console.WriteLine($"{currentTime} ---- Error: IO Exception");
+                    else
+                        Console.WriteLine($"{currentTime} ---- Error Writing: \n{ex}");
+
+                    //Move to start of next loop without waiting
                     continue;
                 }
-
-                if (finishedChecking)
-                {
-                    Console.WriteLine("FINISHED CHECKING");
-                    Console.WriteLine($"Server count returned for this scan: {currentCount}");
-                    return;
-                }
-
-                Thread.Sleep(sleepTime * modif);
             }
         }
 
@@ -301,6 +357,7 @@ namespace MCPing
             foreach (var item in _rangeList)
             {
                 _ipList.AddRange(CalculateRange(item.startip, item.endip));
+                _ipList.Add(Constants.saveKey);
             }
 
             return _ipList;
@@ -318,23 +375,17 @@ namespace MCPing
             //Send a "Status Request" packet
             packet.MCFlush(0);
 
-            #region Read Data
-            byte[] buffer = new byte[short.MaxValue];
-            packet.stream.Read(buffer, 0, buffer.Length);
-
-            var length = packet.ReadVarInt(buffer);
-            var packetType = packet.ReadVarInt(buffer);
-
-            ThrowError(packet.ip, $"Received packet 0x{packetType:X2} with a length of {length}");
-
+            //Read Data
+            byte[] buffer = packet.ReadStream();
             var jsonLength = packet.ReadVarInt(buffer);
-            #endregion
 
             string json = "";
             try
             {
                 json = packet.ReadString(buffer, jsonLength);
-                ThrowError(packet.ip, json.Length.ToString());
+                int jsonCount = json.TrimEnd('\0').Length;
+
+                ThrowError(packet.ip, $"{jsonCount}/{json.Length} Valid Characters");
 
                 if (json != null)
                 {
