@@ -29,7 +29,7 @@ namespace MCPing
             scannerListener.BeginAcceptTcpClient(ScannerCallback, null);
 
             //Initilize Listener for Client (GUI) connections
-            //Primary Function will be to add new IP's and grab current ServerList
+            //Primary Function will be to add new IP's, grab current ServerList and manual File Update
             clientListener = new TcpListener(IPAddress.Any, clientPort);
             clientListener.Start();
 

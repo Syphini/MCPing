@@ -24,6 +24,11 @@ namespace MCPing
             Console.ResetColor();
         }
 
+        public static string GetCurrentTime()
+        {
+            return $"{DateTime.Now.Year:D4}/{DateTime.Now.Month:D2}/{DateTime.Now.Day:D2}, {DateTime.Now.Hour:D2}:{DateTime.Now.Minute:D2}:{DateTime.Now.Second:D2}";
+        }
+
         public static int CountRange(string startIP, string endIP)
         {
             int[] start = ConvertIP(startIP);
@@ -98,5 +103,22 @@ namespace MCPing
             return array;
 
         }
+
+        #region WriteLine
+        public static void WriteLine(string message)
+        {
+            Console.WriteLine($"{GetCurrentTime()} ---- {message}");
+        }
+
+        public static void WriteLine(int message)
+        {
+            Console.WriteLine($"{GetCurrentTime()} ---- {message}");
+        }
+
+        public static void WriteLine(bool message)
+        {
+            Console.WriteLine($"{GetCurrentTime()} ---- {message}");
+        }
+        #endregion
     }
 }
